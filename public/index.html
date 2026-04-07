@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monopoli del Rosario</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <h1>Monopoli del Rosario</h1>
+      <p class="subtitle">Version educativa para alumnos de 9 anos</p>
+
+      <section class="panel" id="setupPanel">
+        <h2>Nueva partida</h2>
+        <label class="field">
+          Nombre de la partida
+          <input id="gameName" value="Partida del Rosario" maxlength="40" />
+        </label>
+        <div id="playersForm"></div>
+        <button id="addPlayerBtn" class="ghost">Agregar jugador</button>
+        <button id="startBtn">Comenzar partida</button>
+      </section>
+
+      <section class="panel">
+        <h2>Partidas guardadas</h2>
+        <button id="refreshSavedBtn" class="ghost">Actualizar lista</button>
+        <ul id="savedGames"></ul>
+      </section>
+
+      <section class="panel hidden" id="gamePanel">
+        <div class="gameHeader">
+          <h2 id="gameTitle"></h2>
+          <div id="turnInfo"></div>
+        </div>
+
+        <div class="boardContainer">
+          <div id="board" class="board"></div>
+          <div class="centerBox">
+            <h3>Acciones</h3>
+            <p id="pendingText">Pulsa "Lanzar dado" para empezar.</p>
+            <div id="pendingActions"></div>
+            <button id="rollBtn">Lanzar dado</button>
+          </div>
+        </div>
+
+        <h3>Jugadores</h3>
+        <div id="playersInfo" class="playersInfo"></div>
+
+        <h3>Ultimos eventos</h3>
+        <ul id="logList" class="logList"></ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+  </html>

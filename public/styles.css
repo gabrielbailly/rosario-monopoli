@@ -1,0 +1,172 @@
+:root {
+  --bg: #f4efe6;
+  --panel: #fffaf2;
+  --ink: #2e2a25;
+  --accent: #1d5b79;
+  --border: #d9c6a6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at top, #fff6dd, var(--bg));
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 8px;
+}
+
+.subtitle {
+  margin-top: 0;
+}
+
+.panel {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.hidden {
+  display: none;
+}
+
+.field {
+  display: block;
+  margin-bottom: 10px;
+}
+
+input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #c7b794;
+}
+
+button {
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  margin-right: 8px;
+  margin-top: 8px;
+}
+
+button.ghost {
+  background: #7c6f57;
+}
+
+.playerRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.boardContainer {
+  display: grid;
+  grid-template-columns: minmax(320px, 720px) minmax(260px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, minmax(78px, 1fr));
+  gap: 4px;
+  background: #e6d5b8;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.cell {
+  border: 1px solid #b59d72;
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px;
+  font-size: 11px;
+  overflow: hidden;
+}
+
+.cell .name {
+  font-weight: bold;
+}
+
+.cell .owner {
+  font-size: 10px;
+}
+
+.tokens {
+  display: flex;
+  gap: 3px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+.token {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #333;
+}
+
+.centerBox {
+  border: 2px dashed #b59d72;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.playersInfo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.playerCard {
+  border: 1px solid #c9b38a;
+  border-radius: 10px;
+  padding: 8px;
+  background: #fff;
+}
+
+.playerCard.current {
+  border-width: 2px;
+  border-color: #1d5b79;
+}
+
+.logList,
+#savedGames {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+@media (max-width: 980px) {
+  .boardContainer {
+    grid-template-columns: 1fr;
+  }
+
+  .board {
+    grid-template-rows: repeat(8, minmax(58px, 1fr));
+  }
+}

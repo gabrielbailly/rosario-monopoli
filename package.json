@@ -1,0 +1,22 @@
+{
+  "name": "rosario-monopoli",
+  "version": "1.0.0",
+  "description": "Juego tipo Monopoli con misterios del rosario para primaria",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/gameConfig.test.js"
+  },
+  "keywords": [
+    "monopoli",
+    "rosario",
+    "educativo"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "sqlite3": "^5.1.7"
+  }
+}
