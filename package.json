@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "dev": "node server.js",
     "test": "node test/gameConfig.test.js"
   },
   "keywords": [
@@ -17,6 +18,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "pg": "^8.13.1",
     "sqlite3": "^5.1.7"
   }
 }

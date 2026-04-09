@@ -29,6 +29,12 @@ app.use(async (_req, _res, next) => {
   }
 });
 
+function safeRoute(handler) {
+  return (req, res, next) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
+}
+
 function gameSummaryRow(row) {
   const state = JSON.parse(row.state_json);
   return {
@@ -90,12 +96,17 @@ app.get("/api/config", (_req, res) => {
   });
 });
 
-app.get("/api/games", async (_req, res) => {
+app.get("/api/health", safeRoute(async (_req, res) => {
+  await all("SELECT 1 AS ok");
+  res.json({ ok: true, now: new Date().toISOString() });
+}));
+
+app.get("/api/games", safeRoute(async (_req, res) => {
   const rows = await all("SELECT * FROM games ORDER BY updated_at DESC");
   res.json(rows.map(gameSummaryRow));
-});
+}));
 
-app.post("/api/games", async (req, res) => {
+app.post("/api/games", safeRoute(async (req, res) => {
   const players = Array.isArray(req.body.players) ? req.body.players : [];
   if (players.length < 2 || players.length > 4) {
     res.status(400).json({ error: "Debe haber entre 2 y 4 jugadores." });
@@ -110,18 +121,18 @@ app.post("/api/games", async (req, res) => {
   const state = createInitialState(cleanedPlayers);
   await saveGame(id, gameName, state);
   res.status(201).json({ id, name: gameName, state });
-});
+}));
 
-app.get("/api/games/:id", async (req, res) => {
+app.get("/api/games/:id", safeRoute(async (req, res) => {
   const game = await loadGame(req.params.id);
   if (!game) {
     res.status(404).json({ error: "Partida no encontrada." });
     return;
   }
   res.json({ id: game.id, name: game.name, state: game.state, updatedAt: game.updated_at });
-});
+}));
 
-app.post("/api/games/:id/roll", async (req, res) => {
+app.post("/api/games/:id/roll", safeRoute(async (req, res) => {
   const game = await loadGame(req.params.id);
   if (!game) {
     res.status(404).json({ error: "Partida no encontrada." });
@@ -147,9 +158,9 @@ app.post("/api/games/:id/roll", async (req, res) => {
     await persistScores(game.id, game.state);
   }
   res.json({ state: game.state });
-});
+}));
 
-app.post("/api/games/:id/resolve", async (req, res) => {
+app.post("/api/games/:id/resolve", safeRoute(async (req, res) => {
   const game = await loadGame(req.params.id);
   if (!game) {
     res.status(404).json({ error: "Partida no encontrada." });
@@ -172,14 +183,14 @@ app.post("/api/games/:id/resolve", async (req, res) => {
     await persistScores(game.id, game.state);
   }
   res.json({ state: game.state });
-});
+}));
 
-app.get("/api/scores", async (_req, res) => {
+app.get("/api/scores", safeRoute(async (_req, res) => {
   const rows = await all(
     "SELECT game_id, player_name, points, money, owned_count, saved_at FROM scores ORDER BY saved_at DESC LIMIT 40"
   );
   res.json(rows);
-});
+}));
 
 app.use((err, _req, res, _next) => {
   res.status(500).json({ error: "Error interno", detail: err.message });
