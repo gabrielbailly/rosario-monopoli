@@ -8,10 +8,26 @@ const { createInitialState, getCurrentPlayer, nextTurn, resolveBotTurn, resolveP
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+let initPromise = null;
+
+function ensureDbInitialized() {
+  if (!initPromise) {
+    initPromise = initDb();
+  }
+  return initPromise;
+}
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+app.use(async (_req, _res, next) => {
+  try {
+    await ensureDbInitialized();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 function gameSummaryRow(row) {
   const state = JSON.parse(row.state_json);
@@ -169,8 +185,15 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: "Error interno", detail: err.message });
 });
 
-initDb().then(() => {
-  app.listen(PORT, () => {
-    process.stdout.write(`Servidor listo en http://localhost:${PORT}\n`);
+if (require.main === module) {
+  ensureDbInitialized().then(() => {
+    app.listen(PORT, () => {
+      process.stdout.write(`Servidor listo en http://localhost:${PORT}\n`);
+    });
+  }).catch((err) => {
+    process.stderr.write(`Error al iniciar: ${err.message}\n`);
+    process.exit(1);
   });
-});
+}
+
+module.exports = app;
