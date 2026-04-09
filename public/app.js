@@ -59,7 +59,13 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json" },
     ...options
   });
-  const body = await response.json();
+  const text = await response.text();
+  let body;
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch (_err) {
+    throw new Error(`Respuesta no JSON en ${path}: ${text.slice(0, 120)}`);
+  }
   if (!response.ok) {
     throw new Error(body.error || "Error de API");
   }
