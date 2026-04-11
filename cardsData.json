@@ -1,0 +1,100 @@
+{
+  "quizQuestions": [
+    {
+      "id": "q1",
+      "question": "¿Qué misterio recuerda el anuncio del ángel a María?",
+      "options": [
+        "La Anunciación",
+        "La Ascensión",
+        "La Coronación"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "id": "q2",
+      "question": "¿En qué grupo está Pentecostés?",
+      "options": [
+        "Gozosos",
+        "Gloriosos",
+        "Luminosos"
+      ],
+      "correctIndex": 1
+    },
+    {
+      "id": "q3",
+      "question": "¿Qué misterio luminoso sucede en una boda?",
+      "options": [
+        "Bodas de Caná",
+        "Transfiguración",
+        "Eucaristía"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "id": "q4",
+      "question": "¿Qué misterio doloroso habla de la cruz?",
+      "options": [
+        "Flagelación",
+        "Jesús con la Cruz",
+        "Agonía en el Huerto"
+      ],
+      "correctIndex": 1
+    },
+    {
+      "id": "q5",
+      "question": "¿Cuántos misterios hay en cada grupo?",
+      "options": [
+        "3",
+        "5",
+        "10"
+      ],
+      "correctIndex": 1
+    },
+    {
+      "id": "q6",
+      "question": "¿Qué misterio glorioso celebra que Jesús vive?",
+      "options": [
+        "Resurrección",
+        "Ascensión",
+        "Asunción"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "id": "q7",
+      "question": "¿De dónde viene la palabra Rosario?",
+      "options": [
+        "de la Iglesia",
+        "de Jesús",
+        "de rosa"
+      ],
+      "correctIndex": 2
+    }
+  ],
+  "surpriseCards": [
+    {
+      "text": "Ayudaste a un compañero: gana 80 puntos",
+      "money": 80,
+      "points": 20
+    },
+    {
+      "text": "Perdiste el turno por distracción",
+      "skipTurns": 1
+    },
+    {
+      "text": "Memorizaste un misterio nuevo: avanza 2 casillas",
+      "points": 10,
+      "moveBy": 2
+    },
+    {
+      "text": "Donas para una buena causa: paga 60",
+      "money": -60,
+      "points": 15
+    },
+    {
+      "text": "Vuelve a SALIDA y cobra 120",
+      "money": 120,
+      "goStart": true
+    }
+  ]
+}

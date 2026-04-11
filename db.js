@@ -94,10 +94,25 @@ async function initDb() {
   await run(`
     CREATE TABLE IF NOT EXISTS games (
       id TEXT PRIMARY KEY,
+      user_id INTEGER,
       name TEXT NOT NULL,
       state_json TEXT NOT NULL,
       created_at TIMESTAMP NOT NULL,
       updated_at TIMESTAMP NOT NULL
+    )
+  `);
+
+  try {
+    await run("ALTER TABLE games ADD COLUMN user_id INTEGER");
+  } catch (_err) {
+  }
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id ${usePostgres ? "SERIAL" : "INTEGER PRIMARY KEY AUTOINCREMENT"},
+      username TEXT UNIQUE NOT NULL,
+      pin TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL
     )
   `);
 

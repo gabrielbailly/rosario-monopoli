@@ -1,9 +1,36 @@
 const { BOARD, GROUPS, MYSTERIES, QUIZ_QUESTIONS, SURPRISE_CARDS } = require("./gameConfig");
 
 const GROUP_SIZE = 5;
-const START_MONEY = 1200;
-const MAX_TURNS = 80;
-const HOTEL_COST = 150;
+
+const DURATION_PRESETS = {
+  corta: {
+    startMoney: 700,
+    passStartBonus: 70,
+    startCellBonus: 40,
+    goStartBonus: 80,
+    restBonus: 25,
+    quizReward: 70,
+    rentDivisor: 4
+  },
+  media: {
+    startMoney: 1000,
+    passStartBonus: 90,
+    startCellBonus: 50,
+    goStartBonus: 100,
+    restBonus: 30,
+    quizReward: 80,
+    rentDivisor: 5
+  },
+  larga: {
+    startMoney: 1300,
+    passStartBonus: 120,
+    startCellBonus: 70,
+    goStartBonus: 120,
+    restBonus: 40,
+    quizReward: 90,
+    rentDivisor: 6
+  }
+};
 
 const mysteryById = Object.fromEntries(MYSTERIES.map((m) => [m.id, m]));
 
@@ -19,17 +46,18 @@ function getCurrentPlayer(state) {
   return state.players[state.currentPlayerIndex];
 }
 
-function createInitialState(playersInput) {
+function createInitialState(playersInput, cards = {}, options = {}) {
+  const duration = options.duration || "media";
+  const rules = DURATION_PRESETS[duration] || DURATION_PRESETS.media;
+
   const players = playersInput.map((player, index) => ({
     id: `p${index + 1}`,
     name: player.name,
     isBot: !!player.isBot,
     position: 0,
-    money: START_MONEY,
-    points: 0,
+    money: rules.startMoney,
     ownedMysteries: [],
     completedGroups: [],
-    hotels: [],
     skipTurns: 0,
     bankrupt: false
   }));
@@ -42,6 +70,12 @@ function createInitialState(playersInput) {
     currentPlayerIndex: 0,
     lastRoll: null,
     pending: null,
+    lastPayment: null,
+    lastMoneyEvent: null,
+    duration,
+    rules,
+    quizQuestions: Array.isArray(cards.quizQuestions) && cards.quizQuestions.length ? cards.quizQuestions : QUIZ_QUESTIONS,
+    surpriseCards: Array.isArray(cards.surpriseCards) && cards.surpriseCards.length ? cards.surpriseCards : SURPRISE_CARDS,
     log: ["Comienza la partida."],
     players,
     gameOver: false,
@@ -63,8 +97,7 @@ function awardGroupIfCompleted(state, player, group) {
     .filter((m) => m.group === group).length;
   if (groupCount === GROUP_SIZE) {
     player.completedGroups.push(group);
-    player.points += 120;
-    addLog(state, `${player.name} completo los 5 misterios ${group} y desbloqueo hoteles.`);
+    addLog(state, `${player.name} completó los 5 misterios ${group}.`);
   }
 }
 
@@ -73,9 +106,9 @@ function movePlayer(state, player, steps) {
   const oldPosition = player.position;
   player.position = (player.position + steps + boardLength) % boardLength;
   if (steps > 0 && player.position < oldPosition) {
-    player.money += 120;
-    player.points += 15;
-    addLog(state, `${player.name} paso por SALIDA y gano 120.`);
+    player.money += state.rules.passStartBonus;
+    state.lastMoneyEvent = `${player.name} gana ${state.rules.passStartBonus} € al pasar por SALIDA.`;
+    addLog(state, `${player.name} pasó por SALIDA y ganó ${state.rules.passStartBonus} €.`);
   }
 }
 
@@ -92,43 +125,59 @@ function resolveMysteryLanding(state, player, cell) {
     state.pending = {
       type: "buy",
       mysteryId: mystery.id,
-      message: `${mystery.name} esta libre. Cuesta ${mystery.cost}.`
+      message: `${mystery.name} está libre. Cuesta ${mystery.cost}.`
     };
     return;
   }
 
   if (ownerId === player.id) {
-    const canBuild = player.completedGroups.includes(mystery.group) && !player.hotels.includes(mystery.id);
-    if (canBuild) {
-      state.pending = {
-        type: "buildHotel",
-        mysteryId: mystery.id,
-        message: `Puedes construir hotel en ${mystery.name} por ${HOTEL_COST}.`
-      };
-      return;
-    }
     addLog(state, `${player.name} cae en su propio misterio ${mystery.name}.`);
     return;
   }
 
   const owner = state.players.find((p) => p.id === ownerId);
-  const hasHotel = owner.hotels.includes(mystery.id);
-  const rent = hasHotel ? Math.floor(mystery.cost / 2) : Math.floor(mystery.cost / 5);
+  const rent = Math.max(15, Math.floor(mystery.cost / state.rules.rentDivisor));
 
   player.money -= rent;
   owner.money += rent;
-  owner.points += hasHotel ? 30 : 15;
+  state.lastPayment = {
+    from: player.name,
+    to: owner.name,
+    amount: rent,
+    reason: `Alquiler de ${mystery.name}`,
+    mysteryName: mystery.name
+  };
+  state.lastMoneyEvent = `${player.name} paga ${rent} € a ${owner.name}.`;
   addLog(state, `${player.name} paga ${rent} a ${owner.name} por ${mystery.name}.`);
 }
 
 function resolveSurprise(state, player) {
-  const card = pickOne(SURPRISE_CARDS);
-  addLog(state, `${player.name} saco sorpresa: ${card.text}`);
+  const card = pickOne(state.surpriseCards && state.surpriseCards.length ? state.surpriseCards : SURPRISE_CARDS);
+  state.lastDraw = { type: "surprise", text: card.text };
+  addLog(state, `${player.name} sacó sorpresa: ${card.text}`);
   if (card.money) {
     player.money += card.money;
+    if (card.money < 0) {
+      state.lastPayment = {
+        from: player.name,
+        to: "banco",
+        amount: Math.abs(card.money),
+        reason: "Carta de sorpresa"
+      };
+      state.lastMoneyEvent = `${player.name} paga ${Math.abs(card.money)} € por sorpresa.`;
+    }
+    if (card.money > 0) {
+      state.lastMoneyEvent = `${player.name} gana ${card.money} € por sorpresa.`;
+    }
   }
   if (card.points) {
-    player.points += card.points;
+    player.money += card.points;
+    if (card.points > 0) {
+      state.lastMoneyEvent = `${player.name} gana ${card.points} € por sorpresa.`;
+    }
+    if (card.points < 0) {
+      state.lastMoneyEvent = `${player.name} paga ${Math.abs(card.points)} € por sorpresa.`;
+    }
   }
   if (card.skipTurns) {
     player.skipTurns += card.skipTurns;
@@ -148,7 +197,7 @@ function resolveLanding(state, player) {
     return;
   }
   if (cell.type === "quiz") {
-    const question = pickOne(QUIZ_QUESTIONS);
+    const question = pickOne(state.quizQuestions && state.quizQuestions.length ? state.quizQuestions : QUIZ_QUESTIONS);
     state.pending = { type: "quiz", question };
     addLog(state, `${player.name} cae en casilla Trivial Rosario.`);
     return;
@@ -159,18 +208,21 @@ function resolveLanding(state, player) {
   }
   if (cell.type === "goStart") {
     goToStart(state, player);
-    player.money += 120;
-    addLog(state, `${player.name} cobra 120 al volver a SALIDA.`);
+    player.money += state.rules.goStartBonus;
+    state.lastMoneyEvent = `${player.name} gana ${state.rules.goStartBonus} € al volver a SALIDA.`;
+    addLog(state, `${player.name} cobra ${state.rules.goStartBonus} € al volver a SALIDA.`);
     return;
   }
   if (cell.type === "rest") {
-    player.points += 10;
-    addLog(state, `${player.name} descansa y gana 10 puntos.`);
+    player.money += state.rules.restBonus;
+    state.lastMoneyEvent = `${player.name} gana ${state.rules.restBonus} € en descanso.`;
+    addLog(state, `${player.name} descansa y gana ${state.rules.restBonus} €.`);
     return;
   }
   if (cell.type === "start") {
-    player.money += 80;
-    addLog(state, `${player.name} cae en SALIDA y gana 80.`);
+    player.money += state.rules.startCellBonus;
+    state.lastMoneyEvent = `${player.name} gana ${state.rules.startCellBonus} € por caer en SALIDA.`;
+    addLog(state, `${player.name} cae en SALIDA y gana ${state.rules.startCellBonus} €.`);
   }
 }
 
@@ -185,17 +237,16 @@ function checkBankruptcy(state, player) {
     delete state.ownership[mysteryId];
   }
   player.ownedMysteries = [];
-  player.hotels = [];
 }
 
 function maybeEndGame(state) {
   const activePlayers = state.players.filter((p) => !p.bankrupt);
-  if (activePlayers.length <= 1 || state.turn > MAX_TURNS) {
+  if (activePlayers.length === 0) {
     state.gameOver = true;
     let best = state.players[0];
     for (const player of state.players) {
-      const score = player.points + player.money;
-      const bestScore = best.points + best.money;
+      const score = player.money;
+      const bestScore = best.money;
       if (score > bestScore) {
         best = player;
       }
@@ -234,6 +285,9 @@ function rollDice(state) {
   if (state.gameOver) {
     return;
   }
+  state.lastDraw = null;
+  state.lastPayment = null;
+  state.lastMoneyEvent = null;
   const player = getCurrentPlayer(state);
   if (player.bankrupt) {
     nextTurn(state);
@@ -251,12 +305,12 @@ function resolvePending(state, choice) {
   if (!state.pending || state.gameOver) {
     return;
   }
+  state.lastMoneyEvent = null;
   const player = getCurrentPlayer(state);
   if (state.pending.type === "buy") {
     const mystery = mysteryById[state.pending.mysteryId];
     if (choice.buy && player.money >= mystery.cost) {
       player.money -= mystery.cost;
-      player.points += 35;
       player.ownedMysteries.push(mystery.id);
       state.ownership[mystery.id] = player.id;
       awardGroupIfCompleted(state, player, mystery.group);
@@ -266,26 +320,13 @@ function resolvePending(state, choice) {
     }
   }
 
-  if (state.pending.type === "buildHotel") {
-    const mystery = mysteryById[state.pending.mysteryId];
-    if (choice.build && player.money >= HOTEL_COST) {
-      player.money -= HOTEL_COST;
-      player.points += 45;
-      player.hotels.push(mystery.id);
-      addLog(state, `${player.name} construyo hotel en ${mystery.name}.`);
-    } else {
-      addLog(state, `${player.name} decide no construir hotel.`);
-    }
-  }
-
   if (state.pending.type === "quiz") {
     const isCorrect = Number(choice.answerIndex) === state.pending.question.correctIndex;
     if (isCorrect) {
-      player.money += 90;
-      player.points += 30;
+      player.money += state.rules.quizReward;
+      state.lastMoneyEvent = `${player.name} gana ${state.rules.quizReward} € por acertar la pregunta.`;
       addLog(state, `${player.name} acierta la pregunta y gana premio.`);
     } else {
-      player.points = Math.max(0, player.points - 10);
       addLog(state, `${player.name} falla la pregunta.`);
     }
   }
@@ -306,8 +347,6 @@ function resolveBotTurn(state) {
       if (state.pending.type === "buy") {
         const mystery = mysteryById[state.pending.mysteryId];
         resolvePending(state, { buy: getCurrentPlayer(state).money >= mystery.cost + 80 });
-      } else if (state.pending.type === "buildHotel") {
-        resolvePending(state, { build: getCurrentPlayer(state).money >= HOTEL_COST + 120 });
       } else if (state.pending.type === "quiz") {
         const answerIndex = Math.random() < 0.7
           ? state.pending.question.correctIndex

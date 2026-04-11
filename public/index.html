@@ -8,21 +8,49 @@
   </head>
   <body>
     <main class="page">
-      <h1>Monopoli del Rosario</h1>
-      <p class="subtitle">Version educativa para alumnos de 9 anos</p>
+      <div class="topBar">
+        <h1>Monopoli del Rosario</h1>
+        <button id="adminBtn" class="ghost">Administrador</button>
+      </div>
+      <p class="subtitle">Juega al monopoli mientras aprendes los misterios del rosario.</p>
+
+      <section class="panel" id="userPanel">
+        <h2>Usuario</h2>
+        <div id="loginBox">
+          <label class="field">Nombre de usuario
+            <input id="usernameInput" placeholder="ejemplo: alumno1" maxlength="24" />
+          </label>
+          <label class="field">PIN
+            <input id="pinInput" type="password" placeholder="mínimo 4 caracteres" maxlength="24" />
+          </label>
+          <button id="loginBtn">Entrar / Crear usuario</button>
+        </div>
+        <div id="sessionBox" class="hidden">
+          <p id="sessionText"></p>
+          <button id="logoutBtn" class="ghost">Cerrar sesión</button>
+        </div>
+      </section>
 
       <section class="panel" id="setupPanel">
         <h2>Nueva partida</h2>
         <label class="field">
           Nombre de la partida
-          <input id="gameName" value="Partida del Rosario" maxlength="40" />
+          <input id="gameName" placeholder="Escribe un nombre" maxlength="40" />
+        </label>
+        <label class="field">
+          Duración de la partida
+          <select id="durationSelect">
+            <option value="corta">Corta</option>
+            <option value="media" selected>Media</option>
+            <option value="larga">Larga</option>
+          </select>
         </label>
         <div id="playersForm"></div>
         <button id="addPlayerBtn" class="ghost">Agregar jugador</button>
         <button id="startBtn">Comenzar partida</button>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="savedPanel">
         <h2>Partidas guardadas</h2>
         <button id="refreshSavedBtn" class="ghost">Actualizar lista</button>
         <ul id="savedGames"></ul>
@@ -30,26 +58,65 @@
 
       <section class="panel hidden" id="gamePanel">
         <div class="gameHeader">
-          <h2 id="gameTitle"></h2>
-          <div id="turnInfo"></div>
+          <div>
+            <h2 id="gameTitle"></h2>
+            <div id="turnInfo"></div>
+          </div>
+          <button id="finishBtn" class="ghost">Terminar partida</button>
+        </div>
+
+        <div id="playersInfo" class="playersInfo"></div>
+
+        <div class="rollRow">
+          <div>
+            <button id="rollBtn" class="rollBtn">🎲 Lanzar dados</button>
+          </div>
+          <div class="eventsCard">
+            <h3>Últimos 3 eventos</h3>
+            <ul id="recentLog" class="recentLog"></ul>
+          </div>
         </div>
 
         <div class="boardContainer">
           <div id="board" class="board"></div>
-          <div class="centerBox">
-            <h3>Acciones</h3>
-            <p id="pendingText">Pulsa "Lanzar dado" para empezar.</p>
-            <div id="pendingActions"></div>
-            <button id="rollBtn">Lanzar dado</button>
-          </div>
         </div>
 
-        <h3>Jugadores</h3>
-        <div id="playersInfo" class="playersInfo"></div>
-
-        <h3>Ultimos eventos</h3>
-        <ul id="logList" class="logList"></ul>
       </section>
+
+      <div id="adminModal" class="adminModal hidden">
+        <div class="adminDialog">
+          <div class="adminHead">
+            <h2>Administrador</h2>
+            <div class="adminHeadActions">
+              <button id="adminSaveBtn" class="hidden">Guardar cambios</button>
+              <button id="adminCloseBtn" class="ghost">Cerrar</button>
+            </div>
+          </div>
+
+          <div id="adminLoginBox">
+            <label class="field">
+              Contraseña de administrador
+              <input id="adminPassword" type="password" placeholder="Introduce contraseña" />
+            </label>
+            <button id="adminLoginBtn">Entrar</button>
+          </div>
+
+          <div id="adminEditorBox" class="hidden">
+            <div class="adminSectionHead">
+              <h3>Preguntas</h3>
+              <button id="addQuestionBtn">+ Pregunta</button>
+            </div>
+            <div id="questionsFields" class="adminList"></div>
+
+            <div class="adminSectionHead">
+              <h3>Sorpresas</h3>
+              <button id="addSurpriseBtn">+ Sorpresa</button>
+            </div>
+            <div id="surprisesFields" class="adminList"></div>
+
+          </div>
+        </div>
+      </div>
     </main>
 
     <script src="app.js"></script>

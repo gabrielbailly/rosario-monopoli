@@ -2,13 +2,86 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const { randomUUID } = require("crypto");
-const { BOARD, MYSTERIES, QUIZ_QUESTIONS } = require("./gameConfig");
+const { BOARD, MYSTERIES } = require("./gameConfig");
+const { getCards, saveCards } = require("./cardsStore");
 const { all, get, initDb, run } = require("./db");
-const { createInitialState, getCurrentPlayer, nextTurn, resolveBotTurn, resolvePending, rollDice } = require("./gameEngine");
+const { createInitialState, getCurrentPlayer, nextTurn, resolvePending, rollDice } = require("./gameEngine");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 let initPromise = null;
+const adminSessions = new Map();
+const userSessions = new Map();
+const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 8;
+
+function getAdminPassword() {
+  return process.env.ADMIN_PASSWORD || "admin123";
+}
+
+function createAdminSession() {
+  const token = randomUUID();
+  adminSessions.set(token, Date.now() + ADMIN_SESSION_TTL_MS);
+  return token;
+}
+
+function isAdminAuthorized(req) {
+  const auth = req.headers["x-admin-authorization"] || req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token || !adminSessions.has(token)) {
+    return false;
+  }
+  const expiresAt = adminSessions.get(token);
+  if (Date.now() > expiresAt) {
+    adminSessions.delete(token);
+    return false;
+  }
+  adminSessions.set(token, Date.now() + ADMIN_SESSION_TTL_MS);
+  return true;
+}
+
+function createUserSession(userId) {
+  const token = randomUUID();
+  userSessions.set(token, { userId, expiresAt: Date.now() + ADMIN_SESSION_TTL_MS });
+  return token;
+}
+
+function requireUser(req, res, next) {
+  const auth = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token || !userSessions.has(token)) {
+    res.status(401).json({ error: "Debes iniciar sesión." });
+    return;
+  }
+  const session = userSessions.get(token);
+  if (Date.now() > session.expiresAt) {
+    userSessions.delete(token);
+    res.status(401).json({ error: "Sesión caducada." });
+    return;
+  }
+  session.expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+  req.userId = session.userId;
+  next();
+}
+
+function getBotChoice(state) {
+  const current = getCurrentPlayer(state);
+  const pending = state.pending;
+  if (!pending) {
+    return {};
+  }
+  if (pending.type === "buy") {
+    const mystery = MYSTERIES.find((m) => m.id === pending.mysteryId);
+    const cost = mystery ? mystery.cost : 9999;
+    return { buy: current.money >= cost + 80 };
+  }
+  if (pending.type === "quiz") {
+    const answerIndex = Math.random() < 0.7
+      ? pending.question.correctIndex
+      : Math.floor(Math.random() * pending.question.options.length);
+    return { answerIndex };
+  }
+  return {};
+}
 
 function ensureDbInitialized() {
   if (!initPromise) {
@@ -44,7 +117,6 @@ function gameSummaryRow(row) {
     turn: state.turn,
     players: state.players.map((p) => ({
       name: p.name,
-      points: p.points,
       money: p.money,
       bankrupt: p.bankrupt
     })),
@@ -63,18 +135,19 @@ async function loadGame(id) {
   };
 }
 
-async function saveGame(id, name, state) {
+async function saveGame(id, userId, name, state) {
   const now = new Date().toISOString();
   await run(
     `
-    INSERT INTO games (id, name, state_json, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO games (id, user_id, name, state_json, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
+      user_id = excluded.user_id,
       name = excluded.name,
       state_json = excluded.state_json,
       updated_at = excluded.updated_at
     `,
-    [id, name, JSON.stringify(state), now, now]
+    [id, userId, name, JSON.stringify(state), now, now]
   );
 }
 
@@ -83,30 +156,94 @@ async function persistScores(gameId, state) {
   for (const player of state.players) {
     await run(
       "INSERT INTO scores (game_id, player_name, points, money, owned_count, saved_at) VALUES (?, ?, ?, ?, ?, ?)",
-      [gameId, player.name, player.points, player.money, player.ownedMysteries.length, new Date().toISOString()]
+      [gameId, player.name, 0, player.money, player.ownedMysteries.length, new Date().toISOString()]
     );
   }
 }
 
 app.get("/api/config", (_req, res) => {
+  const cards = getCards();
   res.json({
     board: BOARD,
     mysteries: MYSTERIES,
-    quizCount: QUIZ_QUESTIONS.length
+    quizCount: cards.quizQuestions.length
   });
 });
+
+app.post("/api/auth/login", safeRoute(async (req, res) => {
+  const username = String(req.body.username || "").trim().toLowerCase();
+  const pin = String(req.body.pin || "").trim();
+  if (username.length < 3) {
+    res.status(400).json({ error: "El usuario debe tener al menos 3 caracteres." });
+    return;
+  }
+  if (pin.length < 4) {
+    res.status(400).json({ error: "El PIN debe tener al menos 4 caracteres." });
+    return;
+  }
+
+  const existing = await get("SELECT * FROM users WHERE username = ?", [username]);
+  let userId;
+  if (!existing) {
+    const created = await run(
+      "INSERT INTO users (username, pin, created_at) VALUES (?, ?, ?)",
+      [username, pin, new Date().toISOString()]
+    );
+    userId = created.lastID || (created.rows && created.rows[0] && created.rows[0].id);
+    if (!userId) {
+      const user = await get("SELECT id FROM users WHERE username = ?", [username]);
+      userId = user.id;
+    }
+  } else {
+    if (existing.pin !== pin) {
+      res.status(401).json({ error: "PIN incorrecto." });
+      return;
+    }
+    userId = existing.id;
+  }
+
+  const token = createUserSession(Number(userId));
+  res.json({ token, username });
+}));
+
+app.post("/api/admin/login", safeRoute(async (req, res) => {
+  const password = String(req.body.password || "");
+  if (password !== getAdminPassword()) {
+    res.status(401).json({ error: "Contraseña incorrecta." });
+    return;
+  }
+  const token = createAdminSession();
+  res.json({ token });
+}));
+
+app.get("/api/admin/content", safeRoute(async (req, res) => {
+  if (!isAdminAuthorized(req)) {
+    res.status(401).json({ error: "No autorizado." });
+    return;
+  }
+  res.json(getCards());
+}));
+
+app.put("/api/admin/content", safeRoute(async (req, res) => {
+  if (!isAdminAuthorized(req)) {
+    res.status(401).json({ error: "No autorizado." });
+    return;
+  }
+  const saved = saveCards(req.body || {});
+  res.json(saved);
+}));
 
 app.get("/api/health", safeRoute(async (_req, res) => {
   await all("SELECT 1 AS ok");
   res.json({ ok: true, now: new Date().toISOString() });
 }));
 
-app.get("/api/games", safeRoute(async (_req, res) => {
-  const rows = await all("SELECT * FROM games ORDER BY updated_at DESC");
+app.get("/api/games", requireUser, safeRoute(async (req, res) => {
+  const rows = await all("SELECT * FROM games WHERE user_id = ? ORDER BY updated_at DESC", [req.userId]);
   res.json(rows.map(gameSummaryRow));
 }));
 
-app.post("/api/games", safeRoute(async (req, res) => {
+app.post("/api/games", requireUser, safeRoute(async (req, res) => {
   const players = Array.isArray(req.body.players) ? req.body.players : [];
   if (players.length < 2 || players.length > 4) {
     res.status(400).json({ error: "Debe haber entre 2 y 4 jugadores." });
@@ -118,67 +255,59 @@ app.post("/api/games", safeRoute(async (req, res) => {
   }));
   const id = randomUUID();
   const gameName = String(req.body.name || "Partida de Rosario").slice(0, 40);
-  const state = createInitialState(cleanedPlayers);
-  await saveGame(id, gameName, state);
+  const duration = ["corta", "media", "larga"].includes(req.body.duration) ? req.body.duration : "media";
+  const cards = getCards();
+  const state = createInitialState(cleanedPlayers, cards, { duration });
+  await saveGame(id, req.userId, gameName, state);
   res.status(201).json({ id, name: gameName, state });
 }));
 
-app.get("/api/games/:id", safeRoute(async (req, res) => {
+app.get("/api/games/:id", requireUser, safeRoute(async (req, res) => {
   const game = await loadGame(req.params.id);
-  if (!game) {
+  if (!game || Number(game.user_id) !== Number(req.userId)) {
     res.status(404).json({ error: "Partida no encontrada." });
     return;
   }
   res.json({ id: game.id, name: game.name, state: game.state, updatedAt: game.updated_at });
 }));
 
-app.post("/api/games/:id/roll", safeRoute(async (req, res) => {
+app.post("/api/games/:id/roll", requireUser, safeRoute(async (req, res) => {
   const game = await loadGame(req.params.id);
-  if (!game) {
+  if (!game || Number(game.user_id) !== Number(req.userId)) {
     res.status(404).json({ error: "Partida no encontrada." });
     return;
   }
   if (game.state.pending) {
-    res.status(400).json({ error: "Hay una accion pendiente por resolver." });
+    res.status(400).json({ error: "Hay una acción pendiente por resolver." });
     return;
   }
-  const currentPlayer = getCurrentPlayer(game.state);
-  if (currentPlayer.isBot) {
-    res.status(400).json({ error: "El turno actual lo controla la maquina." });
-    return;
-  }
-
   rollDice(game.state);
   if (!game.state.pending) {
     nextTurn(game.state);
   }
-  resolveBotTurn(game.state);
-  await saveGame(game.id, game.name, game.state);
+  await saveGame(game.id, req.userId, game.name, game.state);
   if (game.state.gameOver) {
     await persistScores(game.id, game.state);
   }
   res.json({ state: game.state });
 }));
 
-app.post("/api/games/:id/resolve", safeRoute(async (req, res) => {
+app.post("/api/games/:id/resolve", requireUser, safeRoute(async (req, res) => {
   const game = await loadGame(req.params.id);
-  if (!game) {
+  if (!game || Number(game.user_id) !== Number(req.userId)) {
     res.status(404).json({ error: "Partida no encontrada." });
     return;
   }
   if (!game.state.pending) {
-    res.status(400).json({ error: "No hay accion pendiente." });
+    res.status(400).json({ error: "No hay acción pendiente." });
     return;
   }
   const currentPlayer = getCurrentPlayer(game.state);
-  if (currentPlayer.isBot) {
-    res.status(400).json({ error: "La accion pendiente es de la maquina." });
-    return;
-  }
+  const body = req.body || {};
+  const choice = currentPlayer.isBot && Object.keys(body).length === 0 ? getBotChoice(game.state) : body;
 
-  resolvePending(game.state, req.body || {});
-  resolveBotTurn(game.state);
-  await saveGame(game.id, game.name, game.state);
+  resolvePending(game.state, choice);
+  await saveGame(game.id, req.userId, game.name, game.state);
   if (game.state.gameOver) {
     await persistScores(game.id, game.state);
   }
@@ -208,3 +337,26 @@ if (require.main === module) {
 }
 
 module.exports = app;
+app.post("/api/games/:id/finish", requireUser, safeRoute(async (req, res) => {
+  const game = await loadGame(req.params.id);
+  if (!game || Number(game.user_id) !== Number(req.userId)) {
+    res.status(404).json({ error: "Partida no encontrada." });
+    return;
+  }
+  game.state.gameOver = true;
+  game.state.log = [`Partida finalizada por el usuario.`, ...(game.state.log || [])].slice(0, 25);
+  await saveGame(game.id, req.userId, game.name, game.state);
+  await persistScores(game.id, game.state);
+  res.json({ ok: true });
+}));
+
+app.delete("/api/games/:id", requireUser, safeRoute(async (req, res) => {
+  const game = await loadGame(req.params.id);
+  if (!game || Number(game.user_id) !== Number(req.userId)) {
+    res.status(404).json({ error: "Partida no encontrada." });
+    return;
+  }
+  await run("DELETE FROM scores WHERE game_id = ?", [game.id]);
+  await run("DELETE FROM games WHERE id = ?", [game.id]);
+  res.json({ ok: true });
+}));
