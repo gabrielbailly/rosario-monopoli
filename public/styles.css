@@ -217,6 +217,23 @@ button.ghost {
   font-size: 13px;
 }
 
+.latestEvent {
+  font-weight: 800;
+  animation: latestEventBlink 1s ease-in-out infinite;
+}
+
+@keyframes latestEventBlink {
+  0% {
+    background: transparent;
+  }
+  50% {
+    background: rgba(255, 226, 159, 0.75);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
 .boardContainer {
   display: block;
 }

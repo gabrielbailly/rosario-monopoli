@@ -1015,7 +1015,7 @@ function renderLog() {
   }
   list.innerHTML = state.gameState.log
     .slice(0, 3)
-    .map((item) => `<li>${String(item).replace(/\bMaquina\b/g, "Máquina")}</li>`)
+    .map((item, idx) => `<li class="${idx === 0 ? "latestEvent" : ""}">${String(item).replace(/\bMaquina\b/g, "Máquina")}</li>`)
     .join("");
 }
 
