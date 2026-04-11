@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const { randomUUID } = require("crypto");
+const { randomUUID, createHmac, timingSafeEqual } = require("crypto");
 const { BOARD, MYSTERIES } = require("./gameConfig");
 const { getCards, saveCards } = require("./cardsStore");
 const { all, get, initDb, run } = require("./db");
@@ -11,8 +11,56 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 let initPromise = null;
 const adminSessions = new Map();
-const userSessions = new Map();
 const ADMIN_SESSION_TTL_MS = 1000 * 60 * 60 * 8;
+const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+
+function getSessionSecret() {
+  return process.env.SESSION_SECRET || "rosario-monopoli-secret";
+}
+
+function base64UrlEncode(text) {
+  return Buffer.from(text, "utf8").toString("base64url");
+}
+
+function signText(text) {
+  return createHmac("sha256", getSessionSecret()).update(text).digest("base64url");
+}
+
+function createSignedToken(payload) {
+  const serialized = JSON.stringify(payload);
+  const encoded = base64UrlEncode(serialized);
+  const signature = signText(encoded);
+  return `${encoded}.${signature}`;
+}
+
+function verifySignedToken(token) {
+  if (!token || !token.includes(".")) {
+    return null;
+  }
+  const [encoded, signature] = token.split(".");
+  if (!encoded || !signature) {
+    return null;
+  }
+  const expected = signText(encoded);
+  const sigA = Buffer.from(signature);
+  const sigB = Buffer.from(expected);
+  if (sigA.length !== sigB.length || !timingSafeEqual(sigA, sigB)) {
+    return null;
+  }
+  try {
+    const decoded = Buffer.from(encoded, "base64url").toString("utf8");
+    const payload = JSON.parse(decoded);
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+    if (!payload.exp || Date.now() > Number(payload.exp)) {
+      return null;
+    }
+    return payload;
+  } catch (_err) {
+    return null;
+  }
+}
 
 function getAdminPassword() {
   return process.env.ADMIN_PASSWORD || "admin123";
@@ -40,26 +88,22 @@ function isAdminAuthorized(req) {
 }
 
 function createUserSession(userId) {
-  const token = randomUUID();
-  userSessions.set(token, { userId, expiresAt: Date.now() + ADMIN_SESSION_TTL_MS });
-  return token;
+  return createSignedToken({
+    typ: "user",
+    uid: Number(userId),
+    exp: Date.now() + USER_SESSION_TTL_MS
+  });
 }
 
 function requireUser(req, res, next) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token || !userSessions.has(token)) {
+  const payload = verifySignedToken(token);
+  if (!payload || payload.typ !== "user") {
     res.status(401).json({ error: "Debes iniciar sesión." });
     return;
   }
-  const session = userSessions.get(token);
-  if (Date.now() > session.expiresAt) {
-    userSessions.delete(token);
-    res.status(401).json({ error: "Sesión caducada." });
-    return;
-  }
-  session.expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
-  req.userId = session.userId;
+  req.userId = Number(payload.uid);
   next();
 }
 

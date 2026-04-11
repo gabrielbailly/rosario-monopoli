@@ -335,6 +335,13 @@ async function api(path, options = {}) {
     throw new Error(`Respuesta no JSON en ${path}: ${text.slice(0, 120)}`);
   }
   if (!response.ok) {
+    if (response.status === 401 && !options.admin) {
+      state.userToken = null;
+      state.username = null;
+      localStorage.removeItem("userToken");
+      localStorage.removeItem("username");
+      renderSessionUi();
+    }
     throw new Error(body.error || "Error de API");
   }
   return body;
