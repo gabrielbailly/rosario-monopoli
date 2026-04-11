@@ -10,6 +10,7 @@ const state = {
   adminContent: null,
   lastShownMoneyEvent: null,
   lastShownDrawKey: null,
+  lastShownCenterCardKey: null,
   userToken: localStorage.getItem("userToken") || null,
   username: localStorage.getItem("username") || null
 };
@@ -902,6 +903,19 @@ async function showSurpriseCardIfNeeded() {
   await showFloatingCard("surprise", "Tarjeta Sorpresa", [state.gameState.lastDraw.text], { requireContinue: true });
 }
 
+async function showCenterCardMessageIfNeeded() {
+  if (!state.gameState || !state.gameState.lastCenterCard) {
+    return;
+  }
+  const card = state.gameState.lastCenterCard;
+  const key = `${state.gameState.turn}|${state.gameState.currentPlayerIndex}|${card.title}|${(card.lines || []).join("|")}`;
+  if (key === state.lastShownCenterCardKey) {
+    return;
+  }
+  state.lastShownCenterCardKey = key;
+  await showFloatingCard(card.type || "mystery", card.title || "Aviso", card.lines || [], { requireContinue: true });
+}
+
 function animateNumber(el, from, to, duration = 780) {
   if (!el) {
     return;
@@ -1137,6 +1151,7 @@ async function startGame() {
   state.gameState = data.state;
   state.lastShownMoneyEvent = null;
   state.lastShownDrawKey = null;
+  state.lastShownCenterCardKey = null;
   renderAll();
   await refreshSavedGames();
   if (!state.gameState.pending) {
@@ -1155,6 +1170,7 @@ async function loadGame(gameId) {
   state.gameState = data.state;
   state.lastShownMoneyEvent = null;
   state.lastShownDrawKey = null;
+  state.lastShownCenterCardKey = null;
   renderAll();
   if (!state.gameState.pending) {
     await runBotTurns();
@@ -1261,6 +1277,7 @@ async function resolveAction(payload, skipBotLoop = false) {
   }
 
   renderAll();
+  await showCenterCardMessageIfNeeded();
   await showMoneyEventCardIfNeeded();
   await refreshSavedGames();
   if (!skipBotLoop) {

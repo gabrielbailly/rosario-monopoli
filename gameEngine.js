@@ -72,6 +72,7 @@ function createInitialState(playersInput, cards = {}, options = {}) {
     pending: null,
     lastPayment: null,
     lastMoneyEvent: null,
+    lastCenterCard: null,
     duration,
     rules,
     quizQuestions: Array.isArray(cards.quizQuestions) && cards.quizQuestions.length ? cards.quizQuestions : QUIZ_QUESTIONS,
@@ -227,7 +228,7 @@ function resolveLanding(state, player) {
 }
 
 function checkBankruptcy(state, player) {
-  if (player.money >= 0) {
+  if (player.money > 0) {
     return;
   }
   player.bankrupt = true;
@@ -288,6 +289,7 @@ function rollDice(state) {
   state.lastDraw = null;
   state.lastPayment = null;
   state.lastMoneyEvent = null;
+  state.lastCenterCard = null;
   const player = getCurrentPlayer(state);
   if (player.bankrupt) {
     nextTurn(state);
@@ -306,6 +308,7 @@ function resolvePending(state, choice) {
     return;
   }
   state.lastMoneyEvent = null;
+  state.lastCenterCard = null;
   const player = getCurrentPlayer(state);
   if (state.pending.type === "buy") {
     const mystery = mysteryById[state.pending.mysteryId];
@@ -315,6 +318,16 @@ function resolvePending(state, choice) {
       state.ownership[mystery.id] = player.id;
       awardGroupIfCompleted(state, player, mystery.group);
       addLog(state, `${player.name} compro ${mystery.name}.`);
+    } else if (choice.buy && player.money < mystery.cost) {
+      state.lastCenterCard = {
+        type: "mystery",
+        title: "Tarjeta de Misterio",
+        lines: [
+          "No tienes dinero suficiente para comprar.",
+          `Necesitas ${mystery.cost} € y tienes ${player.money} €.`
+        ]
+      };
+      addLog(state, `${player.name} no puede comprar ${mystery.name}: dinero insuficiente.`);
     } else {
       addLog(state, `${player.name} no compro ${mystery.name}.`);
     }
