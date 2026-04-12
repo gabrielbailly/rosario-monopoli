@@ -979,6 +979,10 @@ async function showMoneyEventCardIfNeeded() {
   if (!text || text === state.lastShownMoneyEvent) {
     return;
   }
+  if (state.gameState.lastDraw && state.gameState.lastDraw.type === "surprise") {
+    state.lastShownMoneyEvent = text;
+    return;
+  }
   text = text.replace(/\bMaquina\b/g, "Máquina");
 
   const isPayment = /\bpaga\b/i.test(text);
