@@ -129,6 +129,13 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function hasQuestionPending(gameState) {
+  if (!gameState || !gameState.pending) {
+    return false;
+  }
+  return gameState.pending.type === "quiz" || gameState.pending.type === "mysteryQuiz";
+}
+
 function buildMysteryPlaceholderImage(mystery) {
   const title = escAttr(mystery.name || "Misterio");
   const color = escAttr(mystery.color || "#4e79a7");
@@ -1376,6 +1383,10 @@ async function resolveAction(payload, skipBotLoop = false) {
 }
 
 async function runBotTurns() {
+  if (!state.gameState || hasQuestionPending(state.gameState)) {
+    return;
+  }
+
   async function animateBotButtonPress(choice) {
     const overlay = document.getElementById("centerOverlay");
     if (!overlay) {
@@ -1408,6 +1419,9 @@ async function runBotTurns() {
 
   let safety = 0;
   while (state.gameState && !state.gameState.gameOver && safety < 20) {
+    if (hasQuestionPending(state.gameState)) {
+      break;
+    }
     if (state.gameState.pending && !state.gameState.players[state.gameState.currentPlayerIndex].isBot) {
       break;
     }
