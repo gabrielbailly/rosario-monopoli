@@ -11,6 +11,7 @@ const state = {
   lastShownMoneyEvent: null,
   lastShownDrawKey: null,
   lastShownCenterCardKey: null,
+  animatingPlayerId: null,
   userToken: localStorage.getItem("userToken") || null,
   username: localStorage.getItem("username") || null
 };
@@ -756,7 +757,7 @@ function renderBoard() {
 
     const tokens = game.players
       .map((p, idx) => ({ player: p, idx }))
-      .filter((x) => x.player.position === i && !x.player.bankrupt)
+      .filter((x) => x.player.position === i && !x.player.bankrupt && x.player.id !== state.animatingPlayerId)
       .map((x) => {
         const currentClass = currentPlayer && x.player.id === currentPlayer.id ? " currentTurnToken" : "";
         return `<span class="token${currentClass}" style="background:${colors[x.idx % colors.length]}" title="${x.player.name}"></span>`;
@@ -999,9 +1000,7 @@ function renderPlayers() {
       })
       .join("");
     div.innerHTML = `
-      <div class="playerNameRow">${badge}<strong>${formatPlayerName(player.name)}</strong> (${role})</div>
-      <div class="statRow">💰 Dinero: <span id="moneyValue-${player.id}">${player.money}</span> € <span id="moneyDelta-${player.id}" class="deltaBadge"></span></div>
-      📿 Misterios: ${player.ownedMysteries.length}<br>
+      <div class="playerNameRow">${badge}<strong>${formatPlayerName(player.name)}</strong> (${role}) · 💰 <span id="moneyValue-${player.id}">${player.money}</span> € <span id="moneyDelta-${player.id}" class="deltaBadge"></span> · 📿 ${player.ownedMysteries.length}</div>
       <div>${ownedGroupsHtml || "<span>Sin misterios comprados</span>"}</div>
     `;
     container.appendChild(div);
@@ -1052,29 +1051,25 @@ function renderPending() {
   const card = document.createElement("div");
   card.className = "floatingCard question show persistent";
 
-  if (pending.type === "buy") {
+  if (pending.type === "mysteryQuiz") {
     card.classList.remove("question");
     card.classList.add("mystery");
     const mysteryMap = getMysteryMap();
     const mysteryOrderMap = getMysteryOrderMap();
     const mystery = mysteryMap[pending.mysteryId];
     if (mystery) {
-      card.innerHTML = `<div class="floatingTitle">Tarjeta de Misterio</div><div class="floatingLine">${mysteryOrderMap[mystery.id]}º ${mystery.name}</div><div class="floatingLine">Coste: ${formatMoney(mystery.cost)}</div>`;
+      card.innerHTML = `<div class="floatingTitle">Tarjeta de Misterio</div><div class="floatingLine">${mysteryOrderMap[mystery.id]}º ${mystery.name}</div><div class="floatingLine big">${pending.question.question}</div>`;
     } else {
-      card.innerHTML = `<div class="floatingTitle">Tarjeta de Misterio</div><div class="floatingLine big">${pending.message || "¿Comprar este misterio?"}</div>`;
+      card.innerHTML = `<div class="floatingTitle">Tarjeta de Misterio</div><div class="floatingLine big">${pending.message || "Responde para conseguir este misterio"}</div>`;
     }
-    const buyBtn = document.createElement("button");
-    buyBtn.textContent = "Comprar";
-    buyBtn.className = "centerActionBtn";
-    buyBtn.dataset.action = "buy-yes";
-    buyBtn.onclick = () => resolveAction({ buy: true });
-    const passBtn = document.createElement("button");
-    passBtn.textContent = "Pasar";
-    passBtn.className = "ghost centerActionBtn";
-    passBtn.dataset.action = "buy-no";
-    passBtn.onclick = () => resolveAction({ buy: false });
-    card.appendChild(buyBtn);
-    card.appendChild(passBtn);
+    pending.question.options.forEach((opt, idx) => {
+      const btn = document.createElement("button");
+      btn.textContent = opt;
+      btn.className = "centerActionBtn";
+      btn.dataset.answerIndex = String(idx);
+      btn.onclick = () => resolveAction({ answerIndex: idx });
+      card.appendChild(btn);
+    });
   }
 
   if (pending.type === "quiz") {
@@ -1137,9 +1132,10 @@ async function startGame() {
     return;
   }
   const players = collectPlayers();
+  const durationInput = document.querySelector("input[name='duration']:checked");
   const payload = {
     name: document.getElementById("gameName").value,
-    duration: document.getElementById("durationSelect").value,
+    duration: durationInput ? durationInput.value : "media",
     players
   };
   const data = await api("/api/games", {
@@ -1214,10 +1210,13 @@ async function roll() {
   if (!previous.pending && state.gameState.pending && state.gameState.pending.type === "quiz") {
     playSound("question");
   }
+  state.animatingPlayerId = movingPlayerId;
   renderAll();
   const movedPlayerNow = state.gameState.players.find((player) => player.id === movingPlayerId);
   if (movedPlayerNow) {
     await animateMove(movingPlayerIdx, fromPosition, movedPlayerNow.position);
+    state.animatingPlayerId = null;
+    renderAll();
     const landed = state.gameState.board[movedPlayerNow.position];
     if (landed && landed.type === "quiz") {
       liftPile("question");
@@ -1225,6 +1224,8 @@ async function roll() {
     await showSurpriseCardIfNeeded();
     await showMoneyEventCardIfNeeded();
     await showPaymentCardIfNeeded();
+  } else {
+    state.animatingPlayerId = null;
   }
   await refreshSavedGames();
   if (!state.gameState.pending) {
@@ -1235,16 +1236,10 @@ async function roll() {
 async function resolveAction(payload, skipBotLoop = false) {
   let shouldPlayCorrect = false;
   let shouldPlayWrong = false;
-  if (state.gameState.pending && state.gameState.pending.type === "quiz") {
+  if (state.gameState.pending && (state.gameState.pending.type === "quiz" || state.gameState.pending.type === "mysteryQuiz")) {
     const correct = Number(payload.answerIndex) === state.gameState.pending.question.correctIndex;
     shouldPlayCorrect = correct;
     shouldPlayWrong = !correct;
-  }
-  if (payload.buy === true || payload.build === true) {
-    playSound("buy");
-  }
-  if (payload.buy === false || payload.build === false) {
-    playSound("pass");
   }
   const previous = state.gameState;
   const data = await api(`/api/games/${state.gameId}/resolve`, {
@@ -1254,15 +1249,14 @@ async function resolveAction(payload, skipBotLoop = false) {
   state.previousGameState = previous;
   state.gameState = data.state;
   await showSurpriseCardIfNeeded();
-  if (payload.buy === true && previous.pending && previous.pending.type === "buy") {
+  if (previous.pending && previous.pending.type === "mysteryQuiz" && shouldPlayCorrect) {
     liftPile("mystery");
     const mysteryMap = getMysteryMap();
     const mysteryOrderMap = getMysteryOrderMap();
     const mystery = mysteryMap[previous.pending.mysteryId];
     if (mystery) {
       await showFloatingCard("mystery", "Tarjeta de Misterio", [
-        `${mysteryOrderMap[mystery.id]}º ${mystery.name}`,
-        `Coste: ${formatMoney(mystery.cost)}`
+        `¡Correcto! Has conseguido ${mysteryOrderMap[mystery.id]}º ${mystery.name}`
       ]);
     }
   }
@@ -1272,7 +1266,7 @@ async function resolveAction(payload, skipBotLoop = false) {
   if (shouldPlayWrong) {
     playSound("wrong");
   }
-  if (!previous.pending && state.gameState.pending && state.gameState.pending.type === "quiz") {
+  if (!previous.pending && state.gameState.pending && (state.gameState.pending.type === "quiz" || state.gameState.pending.type === "mysteryQuiz")) {
     playSound("question");
   }
 
@@ -1292,9 +1286,7 @@ async function runBotTurns() {
       return;
     }
     let target = null;
-    if (Object.prototype.hasOwnProperty.call(choice, "buy")) {
-      target = overlay.querySelector(`[data-action='${choice.buy ? "buy-yes" : "buy-no"}']`);
-    } else if (Object.prototype.hasOwnProperty.call(choice, "answerIndex")) {
+    if (Object.prototype.hasOwnProperty.call(choice, "answerIndex")) {
       target = overlay.querySelector(`[data-answer-index='${choice.answerIndex}']`);
     }
     if (!target) {
@@ -1309,12 +1301,7 @@ async function runBotTurns() {
     if (!pending) {
       return {};
     }
-    if (pending.type === "buy") {
-      const mystery = getMysteryMap()[pending.mysteryId];
-      const cost = mystery ? mystery.cost : 9999;
-      return { buy: bot.money >= cost + 80 };
-    }
-    if (pending.type === "quiz") {
+    if (pending.type === "quiz" || pending.type === "mysteryQuiz") {
       const answerIndex = Math.random() < 0.7
         ? pending.question.correctIndex
         : Math.floor(Math.random() * pending.question.options.length);
@@ -1347,11 +1334,14 @@ async function runBotTurns() {
     state.previousGameState = beforeRoll;
     state.gameState = data.state;
     playSound("move");
+    state.animatingPlayerId = botId;
     renderAll();
 
     const movedBot = state.gameState.players.find((p) => p.id === botId);
     if (movedBot) {
       await animateMove(state.gameState.players.indexOf(movedBot), fromPosition, movedBot.position);
+      state.animatingPlayerId = null;
+      renderAll();
       const landed = state.gameState.board[movedBot.position];
       if (landed && landed.type === "quiz") {
         liftPile("question");
@@ -1360,6 +1350,8 @@ async function runBotTurns() {
       await showSurpriseCardIfNeeded();
       await showMoneyEventCardIfNeeded();
       await showPaymentCardIfNeeded();
+    } else {
+      state.animatingPlayerId = null;
     }
 
     if (state.gameState.pending) {
@@ -1372,16 +1364,9 @@ async function runBotTurns() {
         playSound("question");
         await showFloatingCard("question", "Tarjeta de Pregunta", [pending.question.question]);
       }
-      if (pending.type === "buy") {
-        const mystery = getMysteryMap()[pending.mysteryId];
-        const order = mystery ? getMysteryOrderMap()[mystery.id] : "";
-        if (mystery) {
-          liftPile("mystery");
-          await showFloatingCard("mystery", "Tarjeta de Misterio", [
-            `${order}º ${mystery.name}`,
-            `Coste: ${formatMoney(mystery.cost)}`
-          ]);
-        }
+      if (pending.type === "mysteryQuiz") {
+        liftPile("mystery");
+        await showFloatingCard("mystery", "Tarjeta de Misterio", [pending.question.question]);
       }
 
       await animateBotButtonPress(choice);

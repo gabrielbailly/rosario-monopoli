@@ -33,6 +33,12 @@ const DURATION_PRESETS = {
 };
 
 const mysteryById = Object.fromEntries(MYSTERIES.map((m) => [m.id, m]));
+const GROUP_LABELS = {
+  gozosos: "Gozosos",
+  dolorosos: "Dolorosos",
+  gloriosos: "Gloriosos",
+  luminosos: "Luminosos"
+};
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -40,6 +46,27 @@ function randomInt(min, max) {
 
 function pickOne(list) {
   return list[randomInt(0, list.length - 1)];
+}
+
+function shuffle(list) {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = randomInt(0, i);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function createMysteryQuestion(mystery) {
+  const groups = Object.keys(GROUP_LABELS);
+  const wrongGroups = shuffle(groups.filter((g) => g !== mystery.group)).slice(0, 2);
+  const options = shuffle([mystery.group, ...wrongGroups]).map((g) => GROUP_LABELS[g]);
+  const correctIndex = options.indexOf(GROUP_LABELS[mystery.group]);
+  return {
+    question: `¿A qué grupo pertenece ${mystery.name}?`,
+    options,
+    correctIndex
+  };
 }
 
 function getCurrentPlayer(state) {
@@ -123,10 +150,12 @@ function resolveMysteryLanding(state, player, cell) {
   const ownerId = state.ownership[mystery.id];
 
   if (!ownerId) {
+    const question = createMysteryQuestion(mystery);
     state.pending = {
-      type: "buy",
+      type: "mysteryQuiz",
       mysteryId: mystery.id,
-      message: `${mystery.name} está libre. Cuesta ${mystery.cost}.`
+      question,
+      message: `Responde correctamente para conseguir ${mystery.name}.`
     };
     return;
   }
@@ -195,12 +224,6 @@ function resolveLanding(state, player) {
   const cell = state.board[player.position];
   if (cell.type === "mystery") {
     resolveMysteryLanding(state, player, cell);
-    return;
-  }
-  if (cell.type === "quiz") {
-    const question = pickOne(state.quizQuestions && state.quizQuestions.length ? state.quizQuestions : QUIZ_QUESTIONS);
-    state.pending = { type: "quiz", question };
-    addLog(state, `${player.name} cae en casilla Trivial Rosario.`);
     return;
   }
   if (cell.type === "surprise") {
@@ -310,26 +333,24 @@ function resolvePending(state, choice) {
   state.lastMoneyEvent = null;
   state.lastCenterCard = null;
   const player = getCurrentPlayer(state);
-  if (state.pending.type === "buy") {
+  if (state.pending.type === "mysteryQuiz") {
     const mystery = mysteryById[state.pending.mysteryId];
-    if (choice.buy && player.money >= mystery.cost) {
-      player.money -= mystery.cost;
+    const isCorrect = Number(choice.answerIndex) === state.pending.question.correctIndex;
+    if (isCorrect) {
       player.ownedMysteries.push(mystery.id);
       state.ownership[mystery.id] = player.id;
       awardGroupIfCompleted(state, player, mystery.group);
-      addLog(state, `${player.name} compro ${mystery.name}.`);
-    } else if (choice.buy && player.money < mystery.cost) {
+      addLog(state, `${player.name} consigue ${mystery.name} al acertar.`);
+    } else {
       state.lastCenterCard = {
         type: "mystery",
         title: "Tarjeta de Misterio",
         lines: [
-          "No tienes dinero suficiente para comprar.",
-          `Necesitas ${mystery.cost} € y tienes ${player.money} €.`
+          "Respuesta incorrecta.",
+          `No has conseguido ${mystery.name}.`
         ]
       };
-      addLog(state, `${player.name} no puede comprar ${mystery.name}: dinero insuficiente.`);
-    } else {
-      addLog(state, `${player.name} no compro ${mystery.name}.`);
+      addLog(state, `${player.name} falla y no consigue ${mystery.name}.`);
     }
   }
 

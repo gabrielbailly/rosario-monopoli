@@ -113,10 +113,11 @@ function getBotChoice(state) {
   if (!pending) {
     return {};
   }
-  if (pending.type === "buy") {
-    const mystery = MYSTERIES.find((m) => m.id === pending.mysteryId);
-    const cost = mystery ? mystery.cost : 9999;
-    return { buy: current.money >= cost + 80 };
+  if (pending.type === "mysteryQuiz") {
+    const answerIndex = Math.random() < 0.7
+      ? pending.question.correctIndex
+      : Math.floor(Math.random() * pending.question.options.length);
+    return { answerIndex };
   }
   if (pending.type === "quiz") {
     const answerIndex = Math.random() < 0.7

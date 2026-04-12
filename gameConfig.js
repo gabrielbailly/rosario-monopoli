@@ -24,24 +24,24 @@ const MYSTERIES = [
 const BOARD = [
   { type: "start", name: "SALIDA" },
   { type: "mystery", mysteryId: "g1" },
-  { type: "quiz", name: "Trivial Rosario" },
+  { type: "surprise", name: "Sorpresa" },
   { type: "mystery", mysteryId: "d1" },
   { type: "surprise", name: "Sorpresa" },
   { type: "mystery", mysteryId: "g2" },
   { type: "mystery", mysteryId: "l5" },
-  { type: "quiz", name: "Trivial Rosario" },
+  { type: "rest", name: "Descanso" },
   { type: "mystery", mysteryId: "gl1" },
   { type: "goStart", name: "Vuelve a SALIDA" },
   { type: "mystery", mysteryId: "d2" },
   { type: "surprise", name: "Sorpresa" },
   { type: "mystery", mysteryId: "g3" },
-  { type: "quiz", name: "Trivial Rosario" },
+  { type: "surprise", name: "Sorpresa" },
   { type: "mystery", mysteryId: "l2" },
   { type: "mystery", mysteryId: "gl2" },
   { type: "mystery", mysteryId: "d3" },
   { type: "surprise", name: "Sorpresa" },
   { type: "mystery", mysteryId: "g4" },
-  { type: "quiz", name: "Trivial Rosario" },
+  { type: "rest", name: "Descanso" },
   { type: "mystery", mysteryId: "l3" },
   { type: "mystery", mysteryId: "gl3" },
   { type: "mystery", mysteryId: "d4" },
@@ -96,10 +96,10 @@ const QUIZ_QUESTIONS = [
 ];
 
 const SURPRISE_CARDS = [
-  { text: "Ayudaste a un compañero: gana 80 puntos", money: 80, points: 20 },
+  { text: "Ayudaste a un compañero: gana 80 €", money: 80 },
   { text: "Perdiste el turno por distracción", skipTurns: 1 },
-  { text: "Memorizaste un misterio nuevo: avanza 2 casillas", moveBy: 2, points: 10 },
-  { text: "Donas para una buena causa: paga 60", money: -60, points: 15 },
+  { text: "Memorizaste un misterio nuevo: avanza 2 casillas y gana 10 €", moveBy: 2, money: 10 },
+  { text: "Donas para una buena causa: paga 60 €", money: -60 },
   { text: "Vuelve a SALIDA y cobra 120", goStart: true, money: 120 }
 ];
 

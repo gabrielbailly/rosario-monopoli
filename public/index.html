@@ -37,14 +37,14 @@
           Nombre de la partida
           <input id="gameName" placeholder="Escribe un nombre" maxlength="40" />
         </label>
-        <label class="field">
+        <div class="field">
           Duración de la partida
-          <select id="durationSelect">
-            <option value="corta">Corta</option>
-            <option value="media" selected>Media</option>
-            <option value="larga">Larga</option>
-          </select>
-        </label>
+          <div class="durationRadios">
+            <label><input type="radio" name="duration" value="corta" /> Corta</label>
+            <label><input type="radio" name="duration" value="media" checked /> Media</label>
+            <label><input type="radio" name="duration" value="larga" /> Larga</label>
+          </div>
+        </div>
         <div id="playersForm"></div>
         <button id="addPlayerBtn" class="ghost">Agregar jugador</button>
         <button id="startBtn">Comenzar partida</button>
