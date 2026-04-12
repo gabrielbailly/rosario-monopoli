@@ -12,6 +12,7 @@ const state = {
   lastShownDrawKey: null,
   lastShownCenterCardKey: null,
   animatingPlayerId: null,
+  readableMode: localStorage.getItem("readableMode") === "1",
   userToken: localStorage.getItem("userToken") || null,
   username: localStorage.getItem("username") || null
 };
@@ -103,6 +104,20 @@ function setDefaultGameName(force = false) {
   if (force || !String(input.value || "").trim()) {
     input.value = buildDefaultGameName();
   }
+}
+
+function applyReadableMode() {
+  document.body.classList.toggle("readable-mode", !!state.readableMode);
+  const btn = document.getElementById("readableToggleBtn");
+  if (btn) {
+    btn.textContent = `Modo legible: ${state.readableMode ? "ON" : "OFF"}`;
+  }
+}
+
+function toggleReadableMode() {
+  state.readableMode = !state.readableMode;
+  localStorage.setItem("readableMode", state.readableMode ? "1" : "0");
+  applyReadableMode();
 }
 
 function formatPlayerName(name) {
@@ -1399,6 +1414,7 @@ async function init() {
   addDefaultPlayers();
   setDefaultGameName(true);
   renderSessionUi();
+  applyReadableMode();
 
   document.getElementById("startBtn").onclick = () => startGame().catch(alert);
   document.getElementById("addPlayerBtn").onclick = () => {
@@ -1416,6 +1432,7 @@ async function init() {
   document.getElementById("logoutBtn").onclick = () => logoutUser();
   document.getElementById("startBtn").addEventListener("click", ensureAudio);
   document.getElementById("rollBtn").addEventListener("click", ensureAudio);
+  document.getElementById("readableToggleBtn").onclick = () => toggleReadableMode();
   document.getElementById("adminBtn").onclick = () => openAdminPanel().catch((err) => alert(err.message));
   document.getElementById("adminLoginBtn").onclick = () => adminLogin().catch((err) => alert(err.message));
   document.getElementById("adminSaveBtn").onclick = () => adminSave().catch((err) => alert(err.message));

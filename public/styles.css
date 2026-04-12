@@ -52,12 +52,23 @@ h3 {
   text-align: center;
 }
 
-#adminBtn {
+.topActions {
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+#adminBtn,
+#readableToggleBtn {
   margin: 0;
+}
+
+#readableToggleBtn {
+  font-size: 14px;
+  padding: 8px 10px;
 }
 
 .panel {
@@ -72,7 +83,7 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  height: calc(100vh - 92px);
+  height: calc(100vh - 78px);
   min-height: 0;
   overflow: hidden;
 }
@@ -300,9 +311,9 @@ button.ghost {
 .board {
   position: relative;
   display: grid;
-  width: min(100%, calc((100vh - 430px) * 1.25));
+  width: min(100%, calc((100vh - 320px) * 1.25));
   max-width: min(96vw, 1220px);
-  max-height: calc(100vh - 430px);
+  max-height: calc(100vh - 320px);
   margin: 0 auto;
   aspect-ratio: 10 / 8;
   gap: 4px;
@@ -506,7 +517,7 @@ button.ghost {
   background: #fff;
   border-radius: 6px;
   padding: 4px;
-  font-size: clamp(9px, 0.85vw, 12px);
+  font-size: clamp(10px, 0.95vw, 13px);
   overflow: hidden;
   z-index: 2;
   text-align: center;
@@ -541,14 +552,14 @@ button.ghost {
 }
 
 .cell .group {
-  font-size: clamp(8px, 0.62vw, 9px);
+  font-size: clamp(8px, 0.74vw, 10px);
   font-weight: bold;
   text-transform: uppercase;
   line-height: 1.05;
 }
 
 .cell .label {
-  font-size: clamp(8px, 0.68vw, 10px);
+  font-size: clamp(9px, 0.8vw, 11px);
   font-weight: bold;
   line-height: 1.06;
 }
@@ -568,7 +579,7 @@ button.ghost {
 }
 
 .cell .owner {
-  font-size: clamp(7px, 0.58vw, 9px);
+  font-size: clamp(8px, 0.68vw, 10px);
   font-weight: 600;
   color: #151515;
   line-height: 1.05;
@@ -621,6 +632,31 @@ button.ghost {
   border-radius: 50%;
   border: 2px solid #101010;
   box-shadow: 0 0 0 2px #fff, 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+body.readable-mode .cell {
+  font-size: clamp(12px, 1.15vw, 16px);
+}
+
+body.readable-mode .cell .group {
+  font-size: clamp(10px, 0.95vw, 13px);
+}
+
+body.readable-mode .cell .label {
+  font-size: clamp(11px, 1.05vw, 14px);
+}
+
+body.readable-mode .cell .owner {
+  font-size: clamp(10px, 0.9vw, 12px);
+}
+
+body.readable-mode .ownedTag {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+body.readable-mode .recentLog {
+  font-size: 15px;
 }
 
 .token.currentTurnToken {
@@ -814,9 +850,9 @@ button.ghost {
   }
 
   .board {
-    width: min(100%, calc(100vh - 420px));
+    width: min(100%, calc(100vh - 330px));
     max-width: 100%;
-    max-height: calc(100vh - 420px);
+    max-height: calc(100vh - 330px);
     aspect-ratio: 1 / 1;
   }
 
