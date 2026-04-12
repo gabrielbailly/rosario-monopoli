@@ -61,14 +61,8 @@ h3 {
   gap: 6px;
 }
 
-#adminBtn,
-#readableToggleBtn {
+#adminBtn {
   margin: 0;
-}
-
-#readableToggleBtn {
-  font-size: 14px;
-  padding: 8px 10px;
 }
 
 .panel {
@@ -80,9 +74,10 @@ h3 {
 }
 
 #gamePanel {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px 12px;
   height: calc(100vh - 78px);
   min-height: 0;
   overflow: hidden;
@@ -240,6 +235,7 @@ button.ghost {
   justify-content: space-between;
   align-items: flex-start;
   gap: 10px;
+  grid-column: 1 / -1;
 }
 
 .gameHeader #finishBtn {
@@ -248,11 +244,13 @@ button.ghost {
 }
 
 .rollRow {
-  display: grid;
-  grid-template-columns: minmax(220px, 320px) 1fr;
-  gap: 10px;
-  align-items: stretch;
-  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  grid-column: 1;
+  grid-row: 3;
+  min-height: 0;
+  margin-bottom: 0;
 }
 
 .rollBtn {
@@ -260,6 +258,12 @@ button.ghost {
   padding: 12px 20px;
   border-radius: 12px;
   margin: 0;
+  width: 100%;
+}
+
+.rollRow #finishBtn {
+  margin: 0;
+  width: 100%;
 }
 
 .eventsCard {
@@ -277,7 +281,7 @@ button.ghost {
 .recentLog {
   margin: 0;
   padding-left: 18px;
-  max-height: 92px;
+  max-height: 140px;
   overflow: auto;
   font-size: 13px;
 }
@@ -302,8 +306,10 @@ button.ghost {
 .boardContainer {
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   flex: 1;
+  grid-column: 2;
+  grid-row: 2 / 4;
   min-height: 0;
   overflow: hidden;
 }
@@ -311,9 +317,9 @@ button.ghost {
 .board {
   position: relative;
   display: grid;
-  width: min(100%, calc((100vh - 320px) * 1.25));
-  max-width: min(96vw, 1220px);
-  max-height: calc(100vh - 320px);
+  width: min(100%, calc((100vh - 112px) * 1.25));
+  max-width: min(100%, 1320px);
+  max-height: calc(100vh - 112px);
   margin: 0 auto;
   aspect-ratio: 10 / 8;
   gap: 4px;
@@ -634,31 +640,6 @@ button.ghost {
   box-shadow: 0 0 0 2px #fff, 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
-body.readable-mode .cell {
-  font-size: clamp(12px, 1.15vw, 16px);
-}
-
-body.readable-mode .cell .group {
-  font-size: clamp(10px, 0.95vw, 13px);
-}
-
-body.readable-mode .cell .label {
-  font-size: clamp(11px, 1.05vw, 14px);
-}
-
-body.readable-mode .cell .owner {
-  font-size: clamp(10px, 0.9vw, 12px);
-}
-
-body.readable-mode .ownedTag {
-  font-size: 12px;
-  padding: 2px 8px;
-}
-
-body.readable-mode .recentLog {
-  font-size: 15px;
-}
-
 .token.currentTurnToken {
   animation: tokenBlink 0.8s ease-in-out infinite;
 }
@@ -693,9 +674,15 @@ body.readable-mode .recentLog {
 
 .playersInfo {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 0;
+  max-height: 46vh;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .ownedList {
@@ -799,6 +786,97 @@ body.readable-mode .recentLog {
   animation: currentTurnPulseBot 1s ease-in-out infinite;
 }
 
+.mysteryModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 35;
+  padding: 12px;
+}
+
+.mysteryModal.hidden {
+  display: none;
+}
+
+.mysteryModalCard {
+  width: min(980px, 95vw);
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 14px;
+  border: 3px solid #4e79a7;
+  border-radius: 14px;
+  background: #fffaf2;
+  padding: 14px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
+  position: relative;
+}
+
+.mysteryModalCloseBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #644f2a;
+  background: #fff;
+  color: #2d2517;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mysteryModalCloseBtn:hover {
+  background: #f3e3c5;
+}
+
+.mysteryModalImageWrap {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #d9c6a6;
+  background: #f5e6c9;
+}
+
+.mysteryModalImage {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  object-fit: cover;
+  display: block;
+}
+
+.mysteryModalInfo h3 {
+  margin: 0 0 10px;
+  font-size: clamp(24px, 2.3vw, 34px);
+  line-height: 1.1;
+  padding-right: 38px;
+}
+
+.mysteryModalLine {
+  font-size: 19px;
+  margin-bottom: 8px;
+}
+
+.mysteryModalHint {
+  margin-top: 10px;
+  font-size: 17px;
+  line-height: 1.35;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff1dc;
+  border: 1px solid #e2c69a;
+}
+
+.cell.mystery {
+  cursor: pointer;
+}
+
 @keyframes currentTurnPulseBot {
   0% {
     box-shadow: 0 0 0 0 rgba(201, 109, 28, 0.1);
@@ -830,6 +908,44 @@ body.readable-mode .recentLog {
   overflow: auto;
 }
 
+@media (max-width: 1200px) {
+  #gamePanel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .rollRow {
+    display: grid;
+    grid-template-columns: minmax(220px, 320px) 1fr;
+    gap: 10px;
+    align-items: stretch;
+    margin-bottom: 10px;
+  }
+
+  .rollBtn {
+    width: auto;
+  }
+
+  .playersInfo {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    max-height: none;
+    overflow: visible;
+    margin-bottom: 8px;
+    padding-right: 0;
+  }
+
+  .boardContainer {
+    align-items: flex-start;
+  }
+
+  .board {
+    width: min(100%, calc((100vh - 320px) * 1.25));
+    max-width: min(96vw, 1220px);
+    max-height: calc(100vh - 320px);
+  }
+}
+
 @media (max-width: 980px) {
   .gameHeader {
     flex-direction: column;
@@ -858,6 +974,10 @@ body.readable-mode .recentLog {
 
   .boardCenter {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mysteryModalCard {
+    grid-template-columns: 1fr;
   }
 
   .floatingCard,

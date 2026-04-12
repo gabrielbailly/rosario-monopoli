@@ -12,7 +12,6 @@ const state = {
   lastShownDrawKey: null,
   lastShownCenterCardKey: null,
   animatingPlayerId: null,
-  readableMode: localStorage.getItem("readableMode") === "1",
   userToken: localStorage.getItem("userToken") || null,
   username: localStorage.getItem("username") || null
 };
@@ -24,6 +23,8 @@ const gamePanelEl = document.getElementById("gamePanel");
 const setupPanelEl = document.getElementById("setupPanel");
 const savedPanelEl = document.getElementById("savedPanel");
 const userPanelEl = document.getElementById("userPanel");
+const mysteryModalEl = document.getElementById("mysteryModal");
+const mysteryModalCardEl = document.getElementById("mysteryModalCard");
 
 const groupLabels = {
   gozosos: "Misterios Gozosos",
@@ -106,20 +107,6 @@ function setDefaultGameName(force = false) {
   }
 }
 
-function applyReadableMode() {
-  document.body.classList.toggle("readable-mode", !!state.readableMode);
-  const btn = document.getElementById("readableToggleBtn");
-  if (btn) {
-    btn.textContent = `Modo legible: ${state.readableMode ? "ON" : "OFF"}`;
-  }
-}
-
-function toggleReadableMode() {
-  state.readableMode = !state.readableMode;
-  localStorage.setItem("readableMode", state.readableMode ? "1" : "0");
-  applyReadableMode();
-}
-
 function formatPlayerName(name) {
   if (typeof name !== "string") {
     return name;
@@ -140,6 +127,72 @@ function escAttr(value) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildMysteryPlaceholderImage(mystery) {
+  const title = escAttr(mystery.name || "Misterio");
+  const color = escAttr(mystery.color || "#4e79a7");
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 360'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='${color}' stop-opacity='0.82'/><stop offset='100%' stop-color='#f0dec1'/></linearGradient></defs><rect width='600' height='360' fill='url(#g)'/><circle cx='470' cy='70' r='88' fill='rgba(255,255,255,0.35)'/><text x='300' y='170' text-anchor='middle' font-size='42' font-family='Trebuchet MS, sans-serif' fill='#ffffff' font-weight='700'>${title}</text><text x='300' y='222' text-anchor='middle' font-size='26' font-family='Trebuchet MS, sans-serif' fill='#ffffff'>Misterio del Rosario</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function loadMysteryImage(imgEl, mystery) {
+  const base = `/images/mysteries/${mystery.id}`;
+  const candidates = [`${base}.jpg`, `${base}.jpeg`, `${base}.png`, `${base}.webp`];
+  let index = 0;
+
+  const tryNext = () => {
+    if (index >= candidates.length) {
+      imgEl.onerror = null;
+      imgEl.src = buildMysteryPlaceholderImage(mystery);
+      return;
+    }
+    imgEl.src = candidates[index];
+    index += 1;
+  };
+
+  imgEl.onerror = () => tryNext();
+  tryNext();
+}
+
+function closeMysteryModal() {
+  if (!mysteryModalEl) {
+    return;
+  }
+  mysteryModalEl.classList.add("hidden");
+  if (mysteryModalCardEl) {
+    mysteryModalCardEl.innerHTML = "";
+  }
+}
+
+function showMysteryModal({ mystery, order, ownerText }) {
+  if (!mysteryModalEl || !mysteryModalCardEl || !mystery) {
+    return;
+  }
+  const groupLabel = groupLabels[mystery.group] || mystery.group;
+  mysteryModalCardEl.style.borderColor = mystery.color;
+  mysteryModalCardEl.innerHTML = `
+    <button id="mysteryModalCloseBtn" class="mysteryModalCloseBtn" type="button" aria-label="Cerrar">X</button>
+    <div class="mysteryModalImageWrap">
+      <img id="mysteryModalImage" class="mysteryModalImage" alt="${escAttr(mystery.name)}" />
+    </div>
+    <div class="mysteryModalInfo">
+      <h3 id="mysteryModalTitle">${order}º ${escAttr(mystery.name)}</h3>
+      <div class="mysteryModalLine"><strong>Grupo:</strong> ${escAttr(groupLabel)}</div>
+      <div class="mysteryModalLine"><strong>Estado:</strong> ${escAttr(ownerText)}</div>
+      <div class="mysteryModalLine"><strong>Valor:</strong> ${formatMoney(mystery.cost)}</div>
+      <div class="mysteryModalHint">Para conseguir este misterio, responde bien la pregunta al caer en esta casilla.</div>
+    </div>
+  `;
+  const imageEl = document.getElementById("mysteryModalImage");
+  if (imageEl) {
+    loadMysteryImage(imageEl, mystery);
+  }
+  const closeBtn = document.getElementById("mysteryModalCloseBtn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => closeMysteryModal(), { once: true });
+  }
+  mysteryModalEl.classList.remove("hidden");
 }
 
 function getForwardPath(fromIndex, toIndex, total) {
@@ -702,6 +755,7 @@ function renderSavedGames(list) {
 
 function renderBoard() {
   const game = state.gameState;
+  closeMysteryModal();
   const mysteryMap = getMysteryMap();
   const mysteryOrderMap = getMysteryOrderMap();
   const currentPlayer = game.players[game.currentPlayerIndex];
@@ -745,6 +799,7 @@ function renderBoard() {
     let iconText = "";
     if (cell.type === "mystery") {
       const mystery = mysteryMap[cell.mysteryId];
+      tile.classList.add("mystery");
       name = mystery.name;
       label = `${mysteryOrderMap[mystery.id]}º ${mystery.name}`;
       groupText = groupShortLabels[mystery.group];
@@ -787,6 +842,16 @@ function renderBoard() {
 
     if (cell.type === "mystery") {
       tile.innerHTML = `<div class="mysteryText"><div class="group">${groupText}</div><div class="label">${label}</div><div class="owner">${ownerText}</div></div><div class="tokens mysteryTokens">${tokens}</div>`;
+      const mystery = mysteryMap[cell.mysteryId];
+      const order = mysteryOrderMap[mystery.id];
+      tile.tabIndex = 0;
+      tile.addEventListener("click", () => showMysteryModal({ mystery, order, ownerText }));
+      tile.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          showMysteryModal({ mystery, order, ownerText });
+        }
+      });
     } else {
       tile.innerHTML = `<div class="cellTop"><span class="cellIcon">${iconText}</span></div><div class="name">${name}</div><div class="owner">${ownerText}</div><div class="tokens">${tokens}</div>`;
     }
@@ -1414,7 +1479,19 @@ async function init() {
   addDefaultPlayers();
   setDefaultGameName(true);
   renderSessionUi();
-  applyReadableMode();
+
+  if (mysteryModalEl) {
+    mysteryModalEl.addEventListener("click", (event) => {
+      if (event.target === mysteryModalEl) {
+        closeMysteryModal();
+      }
+    });
+  }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && mysteryModalEl && !mysteryModalEl.classList.contains("hidden")) {
+      closeMysteryModal();
+    }
+  });
 
   document.getElementById("startBtn").onclick = () => startGame().catch(alert);
   document.getElementById("addPlayerBtn").onclick = () => {
@@ -1432,7 +1509,6 @@ async function init() {
   document.getElementById("logoutBtn").onclick = () => logoutUser();
   document.getElementById("startBtn").addEventListener("click", ensureAudio);
   document.getElementById("rollBtn").addEventListener("click", ensureAudio);
-  document.getElementById("readableToggleBtn").onclick = () => toggleReadableMode();
   document.getElementById("adminBtn").onclick = () => openAdminPanel().catch((err) => alert(err.message));
   document.getElementById("adminLoginBtn").onclick = () => adminLogin().catch((err) => alert(err.message));
   document.getElementById("adminSaveBtn").onclick = () => adminSave().catch((err) => alert(err.message));
