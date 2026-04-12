@@ -165,7 +165,7 @@ function closeMysteryModal() {
   }
 }
 
-function showMysteryModal({ mystery, order, ownerText }) {
+function showMysteryModal({ mystery, order, statusText }) {
   if (!mysteryModalEl || !mysteryModalCardEl || !mystery) {
     return;
   }
@@ -179,7 +179,7 @@ function showMysteryModal({ mystery, order, ownerText }) {
     <div class="mysteryModalInfo">
       <h3 id="mysteryModalTitle">${order}º ${escAttr(mystery.name)}</h3>
       <div class="mysteryModalLine"><strong>Grupo:</strong> ${escAttr(groupLabel)}</div>
-      <div class="mysteryModalLine"><strong>Estado:</strong> ${escAttr(ownerText)}</div>
+      <div class="mysteryModalLine"><strong>Estado:</strong> ${escAttr(statusText)}</div>
       <div class="mysteryModalLine"><strong>Valor:</strong> ${formatMoney(mystery.cost)}</div>
       <div class="mysteryModalHint">Para conseguir este misterio, responde bien la pregunta al caer en esta casilla.</div>
     </div>
@@ -796,6 +796,7 @@ function renderBoard() {
     let label = "";
     let groupText = "";
     let ownerText = "";
+    let statusText = "";
     let iconText = "";
     if (cell.type === "mystery") {
       const mystery = mysteryMap[cell.mysteryId];
@@ -808,9 +809,11 @@ function renderBoard() {
       const ownerId = game.ownership[mystery.id];
       if (ownerId) {
         const owner = game.players.find((p) => p.id === ownerId);
-        ownerText = `Dueño: ${owner.name}`;
+        ownerText = `Comprado por: ${owner.name}`;
+        statusText = `Comprado por: ${owner.name}`;
       } else {
         ownerText = `Libre: ${formatMoney(mystery.cost)}`;
+        statusText = "Libre";
       }
     } else if (cell.type === "surprise") {
       name = "Sorpresa";
@@ -845,11 +848,11 @@ function renderBoard() {
       const mystery = mysteryMap[cell.mysteryId];
       const order = mysteryOrderMap[mystery.id];
       tile.tabIndex = 0;
-      tile.addEventListener("click", () => showMysteryModal({ mystery, order, ownerText }));
+      tile.addEventListener("click", () => showMysteryModal({ mystery, order, statusText }));
       tile.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          showMysteryModal({ mystery, order, ownerText });
+          showMysteryModal({ mystery, order, statusText });
         }
       });
     } else {
