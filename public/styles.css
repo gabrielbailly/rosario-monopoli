@@ -591,6 +591,20 @@ button.ghost {
   line-height: 1.05;
 }
 
+.mysteryOwnerInfo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ownerMark {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid #1a1a1a;
+  flex: 0 0 auto;
+}
+
 .mysteryText {
   display: grid;
   grid-template-rows: repeat(3, minmax(0, 1fr));

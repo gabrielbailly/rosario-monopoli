@@ -809,8 +809,15 @@ function renderBoard() {
       const ownerId = game.ownership[mystery.id];
       if (ownerId) {
         const owner = game.players.find((p) => p.id === ownerId);
-        ownerText = `Comprado por: ${owner.name}`;
-        statusText = `Comprado por: ${owner.name}`;
+        if (owner) {
+          const ownerIndex = game.players.findIndex((p) => p.id === ownerId);
+          const ownerColor = colors[(ownerIndex >= 0 ? ownerIndex : 0) % colors.length];
+          ownerText = `<span class="mysteryOwnerInfo"><span class="ownerMark" style="background:${ownerColor}"></span>${escAttr(owner.name)}</span>`;
+          statusText = `Comprado por: ${owner.name}`;
+        } else {
+          ownerText = "Asignado";
+          statusText = "Comprado";
+        }
       } else {
         ownerText = `Libre: ${formatMoney(mystery.cost)}`;
         statusText = "Libre";
