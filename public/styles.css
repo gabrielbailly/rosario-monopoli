@@ -74,6 +74,7 @@ h3 {
   gap: 4px;
   height: calc(100vh - 92px);
   min-height: 0;
+  overflow: hidden;
 }
 
 #gamePanel.hidden {
@@ -288,16 +289,20 @@ button.ghost {
 }
 
 .boardContainer {
-  display: block;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .board {
   position: relative;
   display: grid;
-  width: 100%;
+  width: min(100%, calc((100vh - 430px) * 1.25));
   max-width: min(96vw, 1220px);
-  max-height: calc(100vh - 295px);
+  max-height: calc(100vh - 430px);
   margin: 0 auto;
   aspect-ratio: 10 / 8;
   gap: 4px;
@@ -313,7 +318,7 @@ button.ghost {
   border-radius: 12px;
   background: #fff8e9;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   align-items: center;
   padding: 4px;
@@ -335,7 +340,7 @@ button.ghost {
 
 .pile {
   position: relative;
-  min-height: 56px;
+  min-height: 46px;
   aspect-ratio: 1 / 1;
   border-radius: 12px;
   background: #fff;
@@ -369,7 +374,7 @@ button.ghost {
 }
 
 .pileTop {
-  font-size: clamp(18px, 1.6vw, 28px);
+  font-size: clamp(14px, 1.2vw, 22px);
   font-weight: 800;
   text-align: center;
   line-height: 1.1;
@@ -496,11 +501,12 @@ button.ghost {
 }
 
 .cell {
+  position: relative;
   border: 2px solid #b59d72;
   background: #fff;
   border-radius: 6px;
-  padding: 6px;
-  font-size: clamp(10px, 0.95vw, 14px);
+  padding: 4px;
+  font-size: clamp(9px, 0.85vw, 12px);
   overflow: hidden;
   z-index: 2;
   text-align: center;
@@ -535,14 +541,16 @@ button.ghost {
 }
 
 .cell .group {
-  font-size: clamp(8px, 0.7vw, 10px);
+  font-size: clamp(8px, 0.62vw, 9px);
   font-weight: bold;
   text-transform: uppercase;
+  line-height: 1.05;
 }
 
 .cell .label {
-  font-size: clamp(9px, 0.78vw, 11px);
+  font-size: clamp(8px, 0.68vw, 10px);
   font-weight: bold;
+  line-height: 1.06;
 }
 
 .cell.surprise {
@@ -560,9 +568,28 @@ button.ghost {
 }
 
 .cell .owner {
-  font-size: clamp(8px, 0.68vw, 10px);
+  font-size: clamp(7px, 0.58vw, 9px);
   font-weight: 600;
   color: #151515;
+  line-height: 1.05;
+}
+
+.mysteryText {
+  display: grid;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  height: calc(100% - 14px);
+  align-items: center;
+}
+
+.mysteryText .group,
+.mysteryText .label,
+.mysteryText .owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mysteryText .label {
+  white-space: nowrap;
 }
 
 .filler {
@@ -576,9 +603,16 @@ button.ghost {
 .tokens {
   display: flex;
   gap: 4px;
-  margin-top: 4px;
+  margin-top: 2px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.mysteryTokens {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  right: 2px;
 }
 
 .token {
@@ -780,13 +814,14 @@ button.ghost {
   }
 
   .board {
+    width: min(100%, calc(100vh - 420px));
     max-width: 100%;
-    max-height: calc(100vh - 360px);
+    max-height: calc(100vh - 420px);
     aspect-ratio: 1 / 1;
   }
 
   .boardCenter {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .floatingCard,
@@ -801,6 +836,6 @@ button.ghost {
   }
 
   .pile {
-    min-height: 36px;
+    min-height: 30px;
   }
 }

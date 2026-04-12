@@ -31,6 +31,13 @@ const groupLabels = {
   luminosos: "Misterios Luminosos"
 };
 
+const groupShortLabels = {
+  gozosos: "Gozosos",
+  dolorosos: "Dolorosos",
+  gloriosos: "Gloriosos",
+  luminosos: "Luminosos"
+};
+
 const groupOrder = {
   gozosos: 0,
   dolorosos: 1,
@@ -697,7 +704,6 @@ function renderBoard() {
   center.style.gridRow = `${centerRowStart} / ${centerRowEnd + 1}`;
   center.style.gridColumn = `${centerColStart} / ${centerColEnd + 1}`;
   center.innerHTML = `
-    <div class="pile" id="pile-question"><div class="pileTop">Ⓟ Preguntas</div></div>
     <div class="pile" id="pile-surprise"><div class="pileTop">Ⓢ Sorpresa</div></div>
     <div class="pile" id="pile-mystery"><div class="pileTop">Ⓜ Misterios</div></div>
   `;
@@ -726,7 +732,7 @@ function renderBoard() {
       const mystery = mysteryMap[cell.mysteryId];
       name = mystery.name;
       label = `${mysteryOrderMap[mystery.id]}º ${mystery.name}`;
-      groupText = groupLabels[mystery.group];
+      groupText = groupShortLabels[mystery.group];
       tile.style.borderTop = `6px solid ${mystery.color}`;
       tile.style.backgroundColor = hexToRgba(mystery.color, 0.17);
       const ownerId = game.ownership[mystery.id];
@@ -765,7 +771,7 @@ function renderBoard() {
       .join("");
 
     if (cell.type === "mystery") {
-      tile.innerHTML = `<div class="group">${groupText}</div><div class="label">${label}</div><div class="owner">${ownerText}</div><div class="tokens">${tokens}</div>`;
+      tile.innerHTML = `<div class="mysteryText"><div class="group">${groupText}</div><div class="label">${label}</div><div class="owner">${ownerText}</div></div><div class="tokens mysteryTokens">${tokens}</div>`;
     } else {
       tile.innerHTML = `<div class="cellTop"><span class="cellIcon">${iconText}</span></div><div class="name">${name}</div><div class="owner">${ownerText}</div><div class="tokens">${tokens}</div>`;
     }
