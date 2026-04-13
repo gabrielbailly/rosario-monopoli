@@ -167,18 +167,16 @@ function resolveMysteryLanding(state, player, cell) {
 
   const owner = state.players.find((p) => p.id === ownerId);
   const rent = Math.max(15, Math.floor(mystery.cost / state.rules.rentDivisor));
-
-  player.money -= rent;
-  owner.money += rent;
-  state.lastPayment = {
-    from: player.name,
-    to: owner.name,
-    amount: rent,
-    reason: `Alquiler de ${mystery.name}`,
-    mysteryName: mystery.name
+  const question = createMysteryQuestion(mystery);
+  state.pending = {
+    type: "mysteryOwnerQuiz",
+    mysteryId: mystery.id,
+    ownerId,
+    ownerName: owner ? owner.name : "dueño",
+    rent,
+    question,
+    message: `Responde bien para librarte de pagar ${rent} € por ${mystery.name}.`
   };
-  state.lastMoneyEvent = `${player.name} paga ${rent} € a ${owner.name}.`;
-  addLog(state, `${player.name} paga ${rent} a ${owner.name} por ${mystery.name}.`);
 }
 
 function resolveSurprise(state, player) {
@@ -214,9 +212,6 @@ function resolveSurprise(state, player) {
   }
   if (card.moveBy) {
     movePlayer(state, player, card.moveBy);
-  }
-  if (card.goStart) {
-    goToStart(state, player);
   }
 }
 
@@ -354,6 +349,36 @@ function resolvePending(state, choice) {
     }
   }
 
+  if (state.pending.type === "mysteryOwnerQuiz") {
+    const mystery = mysteryById[state.pending.mysteryId];
+    const owner = state.players.find((p) => p.id === state.pending.ownerId);
+    const isCorrect = Number(choice.answerIndex) === state.pending.question.correctIndex;
+    if (isCorrect) {
+      state.lastCenterCard = {
+        type: "mystery",
+        title: "Tarjeta de Misterio",
+        lines: [
+          "¡Correcto!",
+          `Te libras de pagar por ${mystery.name}.`
+        ]
+      };
+      addLog(state, `${player.name} acierta y no paga alquiler por ${mystery.name}.`);
+    } else if (owner && !owner.bankrupt) {
+      const rent = Number(state.pending.rent || 0);
+      player.money -= rent;
+      owner.money += rent;
+      state.lastPayment = {
+        from: player.name,
+        to: owner.name,
+        amount: rent,
+        reason: `Alquiler de ${mystery.name}`,
+        mysteryName: mystery.name
+      };
+      state.lastMoneyEvent = `${player.name} paga ${rent} € a ${owner.name}.`;
+      addLog(state, `${player.name} falla y paga ${rent} a ${owner.name} por ${mystery.name}.`);
+    }
+  }
+
   if (state.pending.type === "quiz") {
     const isCorrect = Number(choice.answerIndex) === state.pending.question.correctIndex;
     if (isCorrect) {
@@ -381,7 +406,7 @@ function resolveBotTurn(state) {
       if (state.pending.type === "buy") {
         const mystery = mysteryById[state.pending.mysteryId];
         resolvePending(state, { buy: getCurrentPlayer(state).money >= mystery.cost + 80 });
-      } else if (state.pending.type === "quiz") {
+      } else if (state.pending.type === "quiz" || state.pending.type === "mysteryOwnerQuiz" || state.pending.type === "mysteryQuiz") {
         const answerIndex = Math.random() < 0.7
           ? state.pending.question.correctIndex
           : randomInt(0, state.pending.question.options.length - 1);

@@ -92,9 +92,8 @@
       "points": 15
     },
     {
-      "text": "Vuelve a SALIDA y cobra 120",
-      "money": 120,
-      "goStart": true
+      "text": "Premio especial: cobra 120 €",
+      "money": 120
     }
   ]
 }

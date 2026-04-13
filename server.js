@@ -113,13 +113,7 @@ function getBotChoice(state) {
   if (!pending) {
     return {};
   }
-  if (pending.type === "mysteryQuiz") {
-    const answerIndex = Math.random() < 0.7
-      ? pending.question.correctIndex
-      : Math.floor(Math.random() * pending.question.options.length);
-    return { answerIndex };
-  }
-  if (pending.type === "quiz") {
+  if (pending.type === "mysteryQuiz" || pending.type === "mysteryOwnerQuiz" || pending.type === "quiz") {
     const answerIndex = Math.random() < 0.7
       ? pending.question.correctIndex
       : Math.floor(Math.random() * pending.question.options.length);

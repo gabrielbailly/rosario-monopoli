@@ -9,6 +9,7 @@ const state = {
   adminToken: null,
   adminContent: null,
   lastShownMoneyEvent: null,
+  lastShownPaymentKey: null,
   lastShownDrawKey: null,
   lastShownCenterCardKey: null,
   animatingPlayerId: null,
@@ -133,7 +134,7 @@ function hasQuestionPending(gameState) {
   if (!gameState || !gameState.pending) {
     return false;
   }
-  return gameState.pending.type === "quiz" || gameState.pending.type === "mysteryQuiz";
+  return gameState.pending.type === "quiz" || gameState.pending.type === "mysteryQuiz" || gameState.pending.type === "mysteryOwnerQuiz";
 }
 
 function buildMysteryPlaceholderImage(mystery) {
@@ -952,6 +953,11 @@ async function showPaymentCardIfNeeded() {
     return;
   }
   const payment = state.gameState.lastPayment;
+  const paymentKey = `${state.gameState.turn}|${state.gameState.currentPlayerIndex}|${payment.from}|${payment.to}|${payment.amount}|${payment.reason || ""}`;
+  if (paymentKey === state.lastShownPaymentKey) {
+    return;
+  }
+  state.lastShownPaymentKey = paymentKey;
   const toName = payment.to && payment.to !== "banco" ? formatPlayerName(payment.to) : null;
   const toText = toName ? `a ${toName}` : "al banco";
   const fromName = formatPlayerName(payment.from);
@@ -972,15 +978,12 @@ async function showMoneyEventCardIfNeeded() {
     return;
   }
   let text = state.gameState.lastMoneyEvent;
-  if (!text && Array.isArray(state.gameState.log)) {
-    const logMoney = state.gameState.log.find((line) => /\bpaga\b|\bgana\b|\bcobra\b/i.test(line));
-    text = logMoney || null;
-  }
-  if (!text || text === state.lastShownMoneyEvent) {
+  const moneyEventKey = `${state.gameState.turn}|${state.gameState.currentPlayerIndex}|${text || ""}`;
+  if (!text || moneyEventKey === state.lastShownMoneyEvent) {
     return;
   }
   if (state.gameState.lastDraw && state.gameState.lastDraw.type === "surprise") {
-    state.lastShownMoneyEvent = text;
+    state.lastShownMoneyEvent = moneyEventKey;
     return;
   }
   text = text.replace(/\bMaquina\b/g, "Máquina");
@@ -995,7 +998,7 @@ async function showMoneyEventCardIfNeeded() {
     });
   }
   await showFloatingCard(cardType, title, [renderedText], { requireContinue: true });
-  state.lastShownMoneyEvent = text;
+  state.lastShownMoneyEvent = moneyEventKey;
 }
 
 async function showSurpriseCardIfNeeded() {
@@ -1154,20 +1157,31 @@ function renderPending() {
     return;
   }
 
+  if (state.animatingPlayerId) {
+    return;
+  }
+
   overlay.classList.add("active");
   const card = document.createElement("div");
   card.className = "floatingCard question show persistent";
 
-  if (pending.type === "mysteryQuiz") {
+  if (pending.type === "mysteryQuiz" || pending.type === "mysteryOwnerQuiz") {
     card.classList.remove("question");
     card.classList.add("mystery");
     const mysteryMap = getMysteryMap();
     const mysteryOrderMap = getMysteryOrderMap();
     const mystery = mysteryMap[pending.mysteryId];
+    const cardTitle = pending.type === "mysteryOwnerQuiz" ? "Tarjeta de Misterio (Alquiler)" : "Tarjeta de Misterio";
     if (mystery) {
-      card.innerHTML = `<div class="floatingTitle">Tarjeta de Misterio</div><div class="floatingLine">${mysteryOrderMap[mystery.id]}º ${mystery.name}</div><div class="floatingLine big">${pending.question.question}</div>`;
+      card.innerHTML = `<div class="floatingTitle">${cardTitle}</div><div class="floatingLine">${mysteryOrderMap[mystery.id]}º ${mystery.name}</div><div class="floatingLine big">${pending.question.question}</div>`;
+      if (pending.type === "mysteryOwnerQuiz") {
+        const hint = document.createElement("div");
+        hint.className = "floatingLine";
+        hint.textContent = pending.message || "Si fallas, pagas alquiler.";
+        card.appendChild(hint);
+      }
     } else {
-      card.innerHTML = `<div class="floatingTitle">Tarjeta de Misterio</div><div class="floatingLine big">${pending.message || "Responde para conseguir este misterio"}</div>`;
+      card.innerHTML = `<div class="floatingTitle">${cardTitle}</div><div class="floatingLine big">${pending.message || "Responde para continuar"}</div>`;
     }
     pending.question.options.forEach((opt, idx) => {
       const btn = document.createElement("button");
@@ -1253,6 +1267,7 @@ async function startGame() {
   state.gameName = data.name;
   state.gameState = data.state;
   state.lastShownMoneyEvent = null;
+  state.lastShownPaymentKey = null;
   state.lastShownDrawKey = null;
   state.lastShownCenterCardKey = null;
   renderAll();
@@ -1272,6 +1287,7 @@ async function loadGame(gameId) {
   state.gameName = data.name;
   state.gameState = data.state;
   state.lastShownMoneyEvent = null;
+  state.lastShownPaymentKey = null;
   state.lastShownDrawKey = null;
   state.lastShownCenterCardKey = null;
   renderAll();
@@ -1343,7 +1359,7 @@ async function roll() {
 async function resolveAction(payload, skipBotLoop = false) {
   let shouldPlayCorrect = false;
   let shouldPlayWrong = false;
-  if (state.gameState.pending && (state.gameState.pending.type === "quiz" || state.gameState.pending.type === "mysteryQuiz")) {
+  if (state.gameState.pending && (state.gameState.pending.type === "quiz" || state.gameState.pending.type === "mysteryQuiz" || state.gameState.pending.type === "mysteryOwnerQuiz")) {
     const correct = Number(payload.answerIndex) === state.gameState.pending.question.correctIndex;
     shouldPlayCorrect = correct;
     shouldPlayWrong = !correct;
@@ -1373,7 +1389,7 @@ async function resolveAction(payload, skipBotLoop = false) {
   if (shouldPlayWrong) {
     playSound("wrong");
   }
-  if (!previous.pending && state.gameState.pending && (state.gameState.pending.type === "quiz" || state.gameState.pending.type === "mysteryQuiz")) {
+  if (!previous.pending && state.gameState.pending && (state.gameState.pending.type === "quiz" || state.gameState.pending.type === "mysteryQuiz" || state.gameState.pending.type === "mysteryOwnerQuiz")) {
     playSound("question");
   }
 
@@ -1412,7 +1428,7 @@ async function runBotTurns() {
     if (!pending) {
       return {};
     }
-    if (pending.type === "quiz" || pending.type === "mysteryQuiz") {
+    if (pending.type === "quiz" || pending.type === "mysteryQuiz" || pending.type === "mysteryOwnerQuiz") {
       const answerIndex = Math.random() < 0.7
         ? pending.question.correctIndex
         : Math.floor(Math.random() * pending.question.options.length);
@@ -1481,6 +1497,10 @@ async function runBotTurns() {
       if (pending.type === "mysteryQuiz") {
         liftPile("mystery");
         await showFloatingCard("mystery", "Tarjeta de Misterio", [pending.question.question]);
+      }
+      if (pending.type === "mysteryOwnerQuiz") {
+        liftPile("mystery");
+        await showFloatingCard("mystery", "Tarjeta de Misterio (Alquiler)", [pending.question.question, pending.message || "Si fallas, pagas alquiler."]);
       }
 
       await animateBotButtonPress(choice);

@@ -100,7 +100,7 @@ const SURPRISE_CARDS = [
   { text: "Perdiste el turno por distracción", skipTurns: 1 },
   { text: "Memorizaste un misterio nuevo: avanza 2 casillas y gana 10 €", moveBy: 2, money: 10 },
   { text: "Donas para una buena causa: paga 60 €", money: -60 },
-  { text: "Vuelve a SALIDA y cobra 120", goStart: true, money: 120 }
+  { text: "Premio especial: cobra 120 €", money: 120 }
 ];
 
 const GROUPS = ["gozosos", "dolorosos", "gloriosos", "luminosos"];
