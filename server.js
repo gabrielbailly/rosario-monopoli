@@ -272,6 +272,98 @@ app.put("/api/admin/content", safeRoute(async (req, res) => {
   res.json(saved);
 }));
 
+app.get("/api/admin/users", safeRoute(async (req, res) => {
+  if (!isAdminAuthorized(req)) {
+    res.status(401).json({ error: "No autorizado." });
+    return;
+  }
+  const users = await all(`
+    SELECT
+      users.id,
+      users.username,
+      users.pin,
+      users.created_at,
+      COUNT(games.id) AS game_count
+    FROM users
+    LEFT JOIN games ON games.user_id = users.id
+    GROUP BY users.id, users.username, users.pin, users.created_at
+    ORDER BY users.username ASC
+  `);
+  res.json(users.map((user) => ({
+    id: Number(user.id),
+    username: user.username,
+    pin: user.pin,
+    createdAt: user.created_at,
+    gameCount: Number(user.game_count || 0)
+  })));
+}));
+
+app.put("/api/admin/users/:id", safeRoute(async (req, res) => {
+  if (!isAdminAuthorized(req)) {
+    res.status(401).json({ error: "No autorizado." });
+    return;
+  }
+
+  const userId = Number(req.params.id);
+  const username = String(req.body.username || "").trim().toLowerCase();
+  const pin = String(req.body.pin || "").trim();
+  if (!Number.isInteger(userId) || userId <= 0) {
+    res.status(400).json({ error: "Usuario inválido." });
+    return;
+  }
+  if (username.length < 3) {
+    res.status(400).json({ error: "El usuario debe tener al menos 3 caracteres." });
+    return;
+  }
+  if (pin.length < 4) {
+    res.status(400).json({ error: "El PIN debe tener al menos 4 caracteres." });
+    return;
+  }
+
+  const existing = await get("SELECT id FROM users WHERE id = ?", [userId]);
+  if (!existing) {
+    res.status(404).json({ error: "Usuario no encontrado." });
+    return;
+  }
+  const duplicate = await get("SELECT id FROM users WHERE username = ? AND id <> ?", [username, userId]);
+  if (duplicate) {
+    res.status(409).json({ error: "Ya existe otro usuario con ese nombre." });
+    return;
+  }
+
+  await run("UPDATE users SET username = ?, pin = ? WHERE id = ?", [username, pin, userId]);
+  const updated = await get("SELECT id, username, pin, created_at FROM users WHERE id = ?", [userId]);
+  res.json({
+    id: Number(updated.id),
+    username: updated.username,
+    pin: updated.pin,
+    createdAt: updated.created_at
+  });
+}));
+
+app.delete("/api/admin/users/:id", safeRoute(async (req, res) => {
+  if (!isAdminAuthorized(req)) {
+    res.status(401).json({ error: "No autorizado." });
+    return;
+  }
+
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    res.status(400).json({ error: "Usuario inválido." });
+    return;
+  }
+  const existing = await get("SELECT id FROM users WHERE id = ?", [userId]);
+  if (!existing) {
+    res.status(404).json({ error: "Usuario no encontrado." });
+    return;
+  }
+
+  await run("DELETE FROM scores WHERE game_id IN (SELECT id FROM games WHERE user_id = ?)", [userId]);
+  await run("DELETE FROM games WHERE user_id = ?", [userId]);
+  await run("DELETE FROM users WHERE id = ?", [userId]);
+  res.json({ ok: true });
+}));
+
 app.get("/api/health", safeRoute(async (_req, res) => {
   await all("SELECT 1 AS ok");
   res.json({ ok: true, now: new Date().toISOString() });

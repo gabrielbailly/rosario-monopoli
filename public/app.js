@@ -118,6 +118,34 @@ function formatPlayerName(name) {
   return name;
 }
 
+function getPlayerContext(player) {
+  if (!state.gameState || !player) {
+    return null;
+  }
+  const index = state.gameState.players.findIndex((p) => p.id === player.id);
+  if (index < 0) {
+    return null;
+  }
+  return {
+    name: formatPlayerName(player.name),
+    color: colors[index % colors.length]
+  };
+}
+
+function getCurrentPlayerContext() {
+  if (!state.gameState) {
+    return null;
+  }
+  return getPlayerContext(state.gameState.players[state.gameState.currentPlayerIndex]);
+}
+
+function buildFloatingPlayerBadge(playerContext) {
+  if (!playerContext || !playerContext.name) {
+    return "";
+  }
+  return `<div class="floatingPlayerName" style="color:${escAttr(playerContext.color)}">${escAttr(playerContext.name)}</div>`;
+}
+
 function escAttr(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -558,6 +586,92 @@ function createSurpriseCard(card, index) {
   return wrap;
 }
 
+function createUserAdminCard(user) {
+  const wrap = document.createElement("div");
+  wrap.className = "adminItem userAdminItem";
+  wrap.dataset.userId = String(user.id);
+  wrap.innerHTML = `
+    <div class="adminItemHead">
+      <strong>${escAttr(user.username)}</strong>
+      <span class="adminMeta">${Number(user.gameCount || 0)} partidas</span>
+    </div>
+    <label class="field">Usuario
+      <input data-user-username="${user.id}" value="${escAttr(user.username)}" />
+    </label>
+    <label class="field">PIN / contraseña
+      <input data-user-pin="${user.id}" value="${escAttr(user.pin)}" />
+    </label>
+    <div class="userAdminActions">
+      <button data-save-user="${user.id}">Guardar usuario</button>
+      <button class="danger" data-delete-user="${user.id}">Eliminar usuario</button>
+    </div>
+  `;
+  return wrap;
+}
+
+function renderAdminUsers(users) {
+  const usersBox = document.getElementById("usersFields");
+  if (!usersBox) {
+    return;
+  }
+  if (!users.length) {
+    usersBox.innerHTML = `<div class="adminEmpty">No hay usuarios creados.</div>`;
+    return;
+  }
+  usersBox.innerHTML = "";
+  users.forEach((user) => usersBox.appendChild(createUserAdminCard(user)));
+
+  usersBox.querySelectorAll("[data-save-user]").forEach((btn) => {
+    btn.onclick = () => saveAdminUser(Number(btn.dataset.saveUser)).catch((err) => alert(err.message));
+  });
+  usersBox.querySelectorAll("[data-delete-user]").forEach((btn) => {
+    btn.onclick = () => deleteAdminUser(Number(btn.dataset.deleteUser)).catch((err) => alert(err.message));
+  });
+}
+
+async function loadAdminUsers() {
+  const users = await api("/api/admin/users", { admin: true });
+  renderAdminUsers(users);
+}
+
+async function saveAdminUser(userId) {
+  const usernameInput = document.querySelector(`[data-user-username='${userId}']`);
+  const pinInput = document.querySelector(`[data-user-pin='${userId}']`);
+  const username = usernameInput ? usernameInput.value.trim() : "";
+  const pin = pinInput ? pinInput.value.trim() : "";
+  if (username.length < 3) {
+    alert("El usuario debe tener al menos 3 caracteres.");
+    return;
+  }
+  if (pin.length < 4) {
+    alert("El PIN debe tener al menos 4 caracteres.");
+    return;
+  }
+  await api(`/api/admin/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify({ username, pin }),
+    admin: true
+  });
+  await loadAdminUsers();
+  alert("Usuario guardado.");
+}
+
+async function deleteAdminUser(userId) {
+  const usernameInput = document.querySelector(`[data-user-username='${userId}']`);
+  const username = usernameInput ? usernameInput.value.trim() : "este usuario";
+  if (!confirm(`¿Eliminar ${username} y todas sus partidas guardadas?`)) {
+    return;
+  }
+  await api(`/api/admin/users/${userId}`, {
+    method: "DELETE",
+    admin: true
+  });
+  if (state.username && state.username.toLowerCase() === username.toLowerCase()) {
+    logoutUser();
+  }
+  await loadAdminUsers();
+}
+
 function renderAdminEditors(content) {
   const qBox = document.getElementById("questionsFields");
   const sBox = document.getElementById("surprisesFields");
@@ -704,6 +818,7 @@ async function loadAdminContent() {
   const data = await api("/api/admin/content", { admin: true });
   state.adminContent = JSON.parse(JSON.stringify(data));
   renderAdminEditors(state.adminContent);
+  await loadAdminUsers();
   document.getElementById("adminLoginBox").classList.add("hidden");
   document.getElementById("adminEditorBox").classList.remove("hidden");
   document.getElementById("adminSaveBtn").classList.remove("hidden");
@@ -809,26 +924,35 @@ function renderBoard() {
     if (cell.type === "mystery") {
       const mystery = mysteryMap[cell.mysteryId];
       tile.classList.add("mystery");
-      name = mystery.name;
-      label = `${mysteryOrderMap[mystery.id]}º ${mystery.name}`;
-      groupText = groupShortLabels[mystery.group];
-      tile.style.borderTop = `6px solid ${mystery.color}`;
-      tile.style.backgroundColor = hexToRgba(mystery.color, 0.17);
-      const ownerId = game.ownership[mystery.id];
-      if (ownerId) {
-        const owner = game.players.find((p) => p.id === ownerId);
-        if (owner) {
-          const ownerIndex = game.players.findIndex((p) => p.id === ownerId);
-          const ownerColor = colors[(ownerIndex >= 0 ? ownerIndex : 0) % colors.length];
-          ownerText = `<span class="mysteryOwnerInfo"><span class="ownerMark" style="background:${ownerColor}"></span>${escAttr(owner.name)}</span>`;
-          statusText = `Comprado por: ${owner.name}`;
-        } else {
-          ownerText = "Asignado";
-          statusText = "Comprado";
-        }
+      if (!mystery) {
+        tile.classList.add("special");
+        name = "Misterio";
+        label = "Misterio";
+        groupText = "";
+        ownerText = "Sin configurar";
+        statusText = "Sin configurar";
       } else {
-        ownerText = `Libre: ${formatMoney(mystery.cost)}`;
-        statusText = "Libre";
+        name = mystery.name;
+        label = `${mysteryOrderMap[mystery.id]}º ${mystery.name}`;
+        groupText = groupShortLabels[mystery.group];
+        tile.style.borderTop = `6px solid ${mystery.color}`;
+        tile.style.backgroundColor = hexToRgba(mystery.color, 0.17);
+        const ownerId = game.ownership[mystery.id];
+        if (ownerId) {
+          const owner = game.players.find((p) => p.id === ownerId);
+          if (owner) {
+            const ownerIndex = game.players.findIndex((p) => p.id === ownerId);
+            const ownerColor = colors[(ownerIndex >= 0 ? ownerIndex : 0) % colors.length];
+            ownerText = `<span class="mysteryOwnerInfo"><span class="ownerMark" style="background:${ownerColor}"></span>${escAttr(owner.name)}</span>`;
+            statusText = `Comprado por: ${owner.name}`;
+          } else {
+            ownerText = "Asignado";
+            statusText = "Comprado";
+          }
+        } else {
+          ownerText = `Libre: ${formatMoney(mystery.cost)}`;
+          statusText = "Libre";
+        }
       }
     } else if (cell.type === "surprise") {
       name = "Sorpresa";
@@ -861,15 +985,17 @@ function renderBoard() {
     if (cell.type === "mystery") {
       tile.innerHTML = `<div class="mysteryText"><div class="group">${groupText}</div><div class="label">${label}</div><div class="owner">${ownerText}</div></div><div class="tokens mysteryTokens">${tokens}</div>`;
       const mystery = mysteryMap[cell.mysteryId];
-      const order = mysteryOrderMap[mystery.id];
-      tile.tabIndex = 0;
-      tile.addEventListener("click", () => showMysteryModal({ mystery, order, statusText }));
-      tile.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          showMysteryModal({ mystery, order, statusText });
-        }
-      });
+      if (mystery) {
+        const order = mysteryOrderMap[mystery.id];
+        tile.tabIndex = 0;
+        tile.addEventListener("click", () => showMysteryModal({ mystery, order, statusText }));
+        tile.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            showMysteryModal({ mystery, order, statusText });
+          }
+        });
+      }
     } else {
       tile.innerHTML = `<div class="cellTop"><span class="cellIcon">${iconText}</span></div><div class="name">${name}</div><div class="owner">${ownerText}</div><div class="tokens">${tokens}</div>`;
     }
@@ -904,6 +1030,7 @@ async function showFloatingCard(type, title, lines = [], options = {}) {
   const visibleMs = Number.isFinite(options.visibleMs) ? options.visibleMs : 1250;
   const requireContinue = !!options.requireContinue;
   const continueLabel = options.continueLabel || "Continuar";
+  const playerBadge = buildFloatingPlayerBadge(options.player || getCurrentPlayerContext());
   const overlay = document.getElementById("centerOverlay");
   if (!overlay) {
     return;
@@ -916,6 +1043,7 @@ async function showFloatingCard(type, title, lines = [], options = {}) {
     .map((line) => `<div class="floatingLine">${line}</div>`)
     .join("");
   card.innerHTML = `
+    ${playerBadge}
     <div class="floatingTitle">${title}</div>
     ${linesHtml}
   `;
@@ -948,7 +1076,7 @@ async function showFloatingCard(type, title, lines = [], options = {}) {
   }
 }
 
-async function showPaymentCardIfNeeded() {
+async function showPaymentCardIfNeeded(playerContext = null) {
   if (!state.gameState || !state.gameState.lastPayment || state.gameState.lastMoneyEvent) {
     return;
   }
@@ -970,10 +1098,10 @@ async function showPaymentCardIfNeeded() {
   await showFloatingCard("surprise", "💸 Pago realizado", [
     mainLine,
     payment.reason || ""
-  ], { requireContinue: true });
+  ], { requireContinue: true, player: playerContext });
 }
 
-async function showMoneyEventCardIfNeeded() {
+async function showMoneyEventCardIfNeeded(playerContext = null) {
   if (!state.gameState) {
     return;
   }
@@ -997,11 +1125,11 @@ async function showMoneyEventCardIfNeeded() {
       return `${prefix}<span class="moneyMysteryName">${mysteryName.trim()}</span>${end || ""}`;
     });
   }
-  await showFloatingCard(cardType, title, [renderedText], { requireContinue: true });
+  await showFloatingCard(cardType, title, [renderedText], { requireContinue: true, player: playerContext });
   state.lastShownMoneyEvent = moneyEventKey;
 }
 
-async function showSurpriseCardIfNeeded() {
+async function showSurpriseCardIfNeeded(playerContext = null) {
   if (!state.gameState || !state.gameState.lastDraw || state.gameState.lastDraw.type !== "surprise") {
     return;
   }
@@ -1011,10 +1139,10 @@ async function showSurpriseCardIfNeeded() {
   }
   state.lastShownDrawKey = key;
   liftPile("surprise");
-  await showFloatingCard("surprise", "Tarjeta Sorpresa", [state.gameState.lastDraw.text], { requireContinue: true });
+  await showFloatingCard("surprise", "Tarjeta Sorpresa", [state.gameState.lastDraw.text], { requireContinue: true, player: playerContext });
 }
 
-async function showCenterCardMessageIfNeeded() {
+async function showCenterCardMessageIfNeeded(playerContext = null) {
   if (!state.gameState || !state.gameState.lastCenterCard) {
     return;
   }
@@ -1024,7 +1152,7 @@ async function showCenterCardMessageIfNeeded() {
     return;
   }
   state.lastShownCenterCardKey = key;
-  await showFloatingCard(card.type || "mystery", card.title || "Aviso", card.lines || [], { requireContinue: true });
+  await showFloatingCard(card.type || "mystery", card.title || "Aviso", card.lines || [], { requireContinue: true, player: playerContext });
 }
 
 function animateNumber(el, from, to, duration = 780) {
@@ -1146,8 +1274,9 @@ function renderPending() {
 
   if (state.gameState.gameOver) {
     const winner = state.gameState.players.find((p) => p.id === state.gameState.winnerId);
+    const winnerName = winner ? winner.name : "un jugador";
     overlay.classList.add("active");
-    overlay.innerHTML = `<div class="floatingCard mystery show persistent"><div class="floatingTitle">Partida terminada</div><div class="floatingLine">Gana ${winner.name}</div></div>`;
+    overlay.innerHTML = `<div class="floatingCard mystery show persistent"><div class="floatingTitle">Partida terminada</div><div class="floatingLine">Gana ${winnerName}</div></div>`;
     document.getElementById("rollBtn").disabled = true;
     return;
   }
@@ -1164,6 +1293,7 @@ function renderPending() {
   overlay.classList.add("active");
   const card = document.createElement("div");
   card.className = "floatingCard question show persistent";
+  const playerBadge = buildFloatingPlayerBadge(getCurrentPlayerContext());
 
   if (pending.type === "mysteryQuiz" || pending.type === "mysteryOwnerQuiz") {
     card.classList.remove("question");
@@ -1173,7 +1303,7 @@ function renderPending() {
     const mystery = mysteryMap[pending.mysteryId];
     const cardTitle = pending.type === "mysteryOwnerQuiz" ? "Tarjeta de Misterio (Alquiler)" : "Tarjeta de Misterio";
     if (mystery) {
-      card.innerHTML = `<div class="floatingTitle">${cardTitle}</div><div class="floatingLine">${mysteryOrderMap[mystery.id]}º ${mystery.name}</div><div class="floatingLine big">${pending.question.question}</div>`;
+      card.innerHTML = `${playerBadge}<div class="floatingTitle">${cardTitle}</div><div class="floatingLine">${mysteryOrderMap[mystery.id]}º ${mystery.name}</div><div class="floatingLine big">${pending.question.question}</div>`;
       if (pending.type === "mysteryOwnerQuiz") {
         const hint = document.createElement("div");
         hint.className = "floatingLine";
@@ -1181,7 +1311,7 @@ function renderPending() {
         card.appendChild(hint);
       }
     } else {
-      card.innerHTML = `<div class="floatingTitle">${cardTitle}</div><div class="floatingLine big">${pending.message || "Responde para continuar"}</div>`;
+      card.innerHTML = `${playerBadge}<div class="floatingTitle">${cardTitle}</div><div class="floatingLine big">${pending.message || "Responde para continuar"}</div>`;
     }
     pending.question.options.forEach((opt, idx) => {
       const btn = document.createElement("button");
@@ -1196,7 +1326,7 @@ function renderPending() {
   if (pending.type === "quiz") {
     card.classList.remove("mystery");
     card.classList.add("question");
-    card.innerHTML = `<div class="floatingTitle">Tarjeta de Pregunta</div><div class="floatingLine big">${pending.question.question}</div>`;
+    card.innerHTML = `${playerBadge}<div class="floatingTitle">Tarjeta de Pregunta</div><div class="floatingLine big">${pending.question.question}</div>`;
     pending.question.options.forEach((opt, idx) => {
       const btn = document.createElement("button");
       btn.textContent = opt;
@@ -1329,6 +1459,7 @@ async function roll() {
   });
   state.previousGameState = previous;
   state.gameState = data.state;
+  const movingPlayerContext = getPlayerContext(movingPlayer);
   playSound("move");
   if (!previous.pending && state.gameState.pending && state.gameState.pending.type === "quiz") {
     playSound("question");
@@ -1344,9 +1475,9 @@ async function roll() {
     if (landed && landed.type === "quiz") {
       liftPile("question");
     }
-    await showSurpriseCardIfNeeded();
-    await showMoneyEventCardIfNeeded();
-    await showPaymentCardIfNeeded();
+    await showSurpriseCardIfNeeded(movingPlayerContext);
+    await showMoneyEventCardIfNeeded(movingPlayerContext);
+    await showPaymentCardIfNeeded(movingPlayerContext);
   } else {
     state.animatingPlayerId = null;
   }
@@ -1359,6 +1490,7 @@ async function roll() {
 async function resolveAction(payload, skipBotLoop = false) {
   let shouldPlayCorrect = false;
   let shouldPlayWrong = false;
+  const affectedPlayer = state.gameState ? state.gameState.players[state.gameState.currentPlayerIndex] : null;
   if (state.gameState.pending && (state.gameState.pending.type === "quiz" || state.gameState.pending.type === "mysteryQuiz" || state.gameState.pending.type === "mysteryOwnerQuiz")) {
     const correct = Number(payload.answerIndex) === state.gameState.pending.question.correctIndex;
     shouldPlayCorrect = correct;
@@ -1371,7 +1503,8 @@ async function resolveAction(payload, skipBotLoop = false) {
   });
   state.previousGameState = previous;
   state.gameState = data.state;
-  await showSurpriseCardIfNeeded();
+  const affectedPlayerContext = getPlayerContext(affectedPlayer);
+  await showSurpriseCardIfNeeded(affectedPlayerContext);
   if (previous.pending && previous.pending.type === "mysteryQuiz" && shouldPlayCorrect) {
     liftPile("mystery");
     const mysteryMap = getMysteryMap();
@@ -1380,7 +1513,7 @@ async function resolveAction(payload, skipBotLoop = false) {
     if (mystery) {
       await showFloatingCard("mystery", "Tarjeta de Misterio", [
         `¡Correcto! Has conseguido ${mysteryOrderMap[mystery.id]}º ${mystery.name}`
-      ]);
+      ], { player: affectedPlayerContext });
     }
   }
   if (shouldPlayCorrect) {
@@ -1394,8 +1527,8 @@ async function resolveAction(payload, skipBotLoop = false) {
   }
 
   renderAll();
-  await showCenterCardMessageIfNeeded();
-  await showMoneyEventCardIfNeeded();
+  await showCenterCardMessageIfNeeded(affectedPlayerContext);
+  await showMoneyEventCardIfNeeded(affectedPlayerContext);
   await refreshSavedGames();
   if (!skipBotLoop) {
     await runBotTurns();
@@ -1463,6 +1596,7 @@ async function runBotTurns() {
     });
     state.previousGameState = beforeRoll;
     state.gameState = data.state;
+    const botContext = getPlayerContext(current);
     playSound("move");
     state.animatingPlayerId = botId;
     renderAll();
@@ -1477,9 +1611,9 @@ async function runBotTurns() {
         liftPile("question");
         playSound("question");
       }
-      await showSurpriseCardIfNeeded();
-      await showMoneyEventCardIfNeeded();
-      await showPaymentCardIfNeeded();
+      await showSurpriseCardIfNeeded(botContext);
+      await showMoneyEventCardIfNeeded(botContext);
+      await showPaymentCardIfNeeded(botContext);
     } else {
       state.animatingPlayerId = null;
     }
@@ -1561,6 +1695,7 @@ async function init() {
   document.getElementById("adminLoginBtn").onclick = () => adminLogin().catch((err) => alert(err.message));
   document.getElementById("adminSaveBtn").onclick = () => adminSave().catch((err) => alert(err.message));
   document.getElementById("adminCloseBtn").onclick = () => closeAdminPanel();
+  document.getElementById("refreshUsersBtn").onclick = () => loadAdminUsers().catch((err) => alert(err.message));
   document.getElementById("adminModal").onclick = (event) => {
     if (event.target.id === "adminModal") {
       closeAdminPanel();

@@ -40,6 +40,249 @@ const GROUP_LABELS = {
   luminosos: "Luminosos"
 };
 
+const MYSTERY_QUESTIONS = {
+  g1: [
+    {
+      question: "En la Anunciación, ¿qué respuesta da María al ángel Gabriel?",
+      options: ["Hágase en mí según tu palabra", "No conozco a ese hombre", "Señor, no soy digno"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Qué anuncia el ángel Gabriel a María en este misterio?",
+      options: ["Que será la Madre de Jesús", "Que debe huir a Egipto", "Que Jesús ha resucitado"],
+      correctIndex: 0
+    }
+  ],
+  g2: [
+    {
+      question: "En la Visitación, ¿a quién va a ayudar María?",
+      options: ["A su prima Isabel", "A Marta", "A María Magdalena"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Qué oración nace de las palabras de Isabel a María?",
+      options: ["El Ave María", "El Credo", "El Yo confieso"],
+      correctIndex: 0
+    }
+  ],
+  g3: [
+    {
+      question: "¿Dónde nace Jesús en el tercer misterio gozoso?",
+      options: ["En Belén", "En Nazaret", "En Jerusalén"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Quiénes reciben el anuncio de los ángeles y van a ver al Niño Jesús?",
+      options: ["Los pastores", "Los soldados", "Los fariseos"],
+      correctIndex: 0
+    }
+  ],
+  g4: [
+    {
+      question: "En la Presentación, ¿a dónde llevan María y José al Niño Jesús?",
+      options: ["Al templo", "Al desierto", "Al Cenáculo"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Qué anciano reconoce a Jesús como la luz de las naciones?",
+      options: ["Simeón", "Zacarías", "Nicodemo"],
+      correctIndex: 0
+    }
+  ],
+  g5: [
+    {
+      question: "¿Dónde encuentran María y José a Jesús después de buscarlo tres días?",
+      options: ["En el templo", "En Caná", "En el Jordán"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Qué estaba haciendo Jesús cuando lo encontraron en el templo?",
+      options: ["Escuchando y preguntando a los maestros", "Curando a un ciego", "Multiplicando panes"],
+      correctIndex: 0
+    }
+  ],
+  d1: [
+    {
+      question: "En la Agonía en el Huerto, ¿qué pide Jesús al Padre?",
+      options: ["Que se haga su voluntad", "Que caiga fuego del cielo", "Que todos se vayan"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Cómo se llama el huerto donde Jesús ora antes de ser apresado?",
+      options: ["Getsemaní", "Edén", "Caná"],
+      correctIndex: 0
+    }
+  ],
+  d2: [
+    {
+      question: "¿Qué sufre Jesús en el misterio de la Flagelación?",
+      options: ["Es azotado", "Es bautizado", "Es transfigurado"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Ante qué gobernador romano llevan a Jesús antes de la Flagelación?",
+      options: ["Poncio Pilato", "Herodes el Grande", "César Augusto"],
+      correctIndex: 0
+    }
+  ],
+  d3: [
+    {
+      question: "¿Qué ponen los soldados sobre la cabeza de Jesús para burlarse de Él?",
+      options: ["Una corona de espinas", "Una corona de oro", "Un velo"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Con qué título se burlan de Jesús en la Coronación de Espinas?",
+      options: ["Rey de los judíos", "Profeta de Galilea", "Hijo de David"],
+      correctIndex: 0
+    }
+  ],
+  d4: [
+    {
+      question: "En Jesús con la Cruz, ¿hacia dónde camina Jesús cargando la cruz?",
+      options: ["Al Calvario", "A Belén", "Al Jordán"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Quién ayuda a Jesús a llevar la cruz?",
+      options: ["Simón de Cirene", "Simeón", "Lázaro"],
+      correctIndex: 0
+    }
+  ],
+  d5: [
+    {
+      question: "¿Qué perdona Jesús desde la cruz?",
+      options: ["A quienes lo crucifican", "Solo a sus discípulos", "Solo a los soldados buenos"],
+      correctIndex: 0
+    },
+    {
+      question: "¿A quién entrega Jesús como madre al discípulo amado?",
+      options: ["A María", "A Isabel", "A Marta"],
+      correctIndex: 0
+    }
+  ],
+  gl1: [
+    {
+      question: "En la Resurrección, ¿qué encuentran las mujeres al llegar al sepulcro?",
+      options: ["El sepulcro vacío", "A Jesús dormido", "A los apóstoles escondidos"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Qué anuncia el ángel en la mañana de Pascua?",
+      options: ["Jesús ha resucitado", "Jesús está perdido", "Jesús está en Belén"],
+      correctIndex: 0
+    }
+  ],
+  gl2: [
+    {
+      question: "En la Ascensión, ¿a dónde sube Jesús?",
+      options: ["Al cielo", "Al templo", "Al desierto"],
+      correctIndex: 0
+    },
+    {
+      question: "Antes de subir al cielo, ¿qué encarga Jesús a sus discípulos?",
+      options: ["Anunciar el Evangelio", "Construir una torre", "Guardar silencio siempre"],
+      correctIndex: 0
+    }
+  ],
+  gl3: [
+    {
+      question: "En Pentecostés, ¿quién desciende sobre los apóstoles?",
+      options: ["El Espíritu Santo", "Moisés", "El ángel Gabriel"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Con qué signo aparece el Espíritu Santo en Pentecostés?",
+      options: ["Lenguas de fuego", "Una estrella", "Una nube de incienso"],
+      correctIndex: 0
+    }
+  ],
+  gl4: [
+    {
+      question: "¿Qué celebra la Asunción de María?",
+      options: ["María es llevada al cielo en cuerpo y alma", "María visita a Isabel", "María huye a Egipto"],
+      correctIndex: 0
+    },
+    {
+      question: "En la Asunción, ¿quién es llevada al cielo por Dios?",
+      options: ["La Virgen María", "Santa Isabel", "María Magdalena"],
+      correctIndex: 0
+    }
+  ],
+  gl5: [
+    {
+      question: "¿Cómo es reconocida María en el misterio de su Coronación?",
+      options: ["Reina del cielo y de la tierra", "Reina de Egipto", "Reina de Galilea"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Quién corona a María como Reina en el quinto misterio glorioso?",
+      options: ["La Santísima Trinidad", "Los pastores", "Los apóstoles"],
+      correctIndex: 0
+    }
+  ],
+  l1: [
+    {
+      question: "¿Quién bautiza a Jesús en el río Jordán?",
+      options: ["Juan el Bautista", "Pedro", "Simeón"],
+      correctIndex: 0
+    },
+    {
+      question: "En el Bautismo de Jesús, ¿qué voz se escucha desde el cielo?",
+      options: ["Este es mi Hijo amado", "Haced lo que Él os diga", "No temáis"],
+      correctIndex: 0
+    }
+  ],
+  l2: [
+    {
+      question: "En las Bodas de Caná, ¿qué convierte Jesús en vino?",
+      options: ["El agua", "El pan", "El aceite"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Qué dice María a los sirvientes en Caná?",
+      options: ["Haced lo que Él os diga", "Id al templo", "Guardad el sábado"],
+      correctIndex: 0
+    }
+  ],
+  l3: [
+    {
+      question: "En el Anuncio del Reino, ¿qué invita Jesús a hacer?",
+      options: ["Convertirse y creer en el Evangelio", "Buscar riquezas", "Pelear contra Roma"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Qué anuncia Jesús cuando predica el Reino de Dios?",
+      options: ["La cercanía y el amor de Dios", "El fin de la oración", "Un reino de soldados"],
+      correctIndex: 0
+    }
+  ],
+  l4: [
+    {
+      question: "En la Transfiguración, ¿cómo aparece el rostro de Jesús?",
+      options: ["Resplandeciente", "Cubierto de polvo", "Triste y escondido"],
+      correctIndex: 0
+    },
+    {
+      question: "¿Qué discípulos suben con Jesús al monte de la Transfiguración?",
+      options: ["Pedro, Santiago y Juan", "Andrés, Felipe y Tomás", "Mateo, Marcos y Lucas"],
+      correctIndex: 0
+    }
+  ],
+  l5: [
+    {
+      question: "En la institución de la Eucaristía, ¿qué entrega Jesús como su Cuerpo?",
+      options: ["El pan", "El agua", "El aceite"],
+      correctIndex: 0
+    },
+    {
+      question: "¿En qué cena instituye Jesús la Eucaristía?",
+      options: ["La Última Cena", "Las bodas de Caná", "La cena de Emaús"],
+      correctIndex: 0
+    }
+  ]
+};
+
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -58,6 +301,18 @@ function shuffle(list) {
 }
 
 function createMysteryQuestion(mystery) {
+  const questions = MYSTERY_QUESTIONS[mystery.id];
+  if (questions && questions.length) {
+    const selected = pickOne(questions);
+    const correctAnswer = selected.options[selected.correctIndex];
+    const options = shuffle(selected.options);
+    return {
+      question: selected.question,
+      options,
+      correctIndex: options.indexOf(correctAnswer)
+    };
+  }
+
   const groups = Object.keys(GROUP_LABELS);
   const wrongGroups = shuffle(groups.filter((g) => g !== mystery.group)).slice(0, 2);
   const options = shuffle([mystery.group, ...wrongGroups]).map((g) => GROUP_LABELS[g]);
