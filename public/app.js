@@ -1595,6 +1595,22 @@ async function finishGame() {
   await refreshSavedGames();
 }
 
+async function saveCurrentGame() {
+  if (!state.gameId) {
+    return;
+  }
+  await api(`/api/games/${state.gameId}/save`, { method: "POST", body: JSON.stringify({}) });
+  state.gameId = null;
+  state.gameState = null;
+  gamePanelEl.classList.add("hidden");
+  userPanelEl.classList.remove("hidden");
+  setupPanelEl.classList.remove("hidden");
+  savedPanelEl.classList.remove("hidden");
+  setDefaultGameName(true);
+  await refreshSavedGames();
+  alert("Partida guardada. Puedes cargarla más adelante desde Partidas guardadas.");
+}
+
 async function roll() {
   const active = state.gameState.players[state.gameState.currentPlayerIndex];
   if (!active || active.isBot) {
@@ -1840,6 +1856,7 @@ async function init() {
   };
   document.getElementById("rollBtn").onclick = () => roll().catch(alert);
   document.getElementById("finishBtn").onclick = () => finishGame().catch(alert);
+  document.getElementById("saveGameBtn").onclick = () => saveCurrentGame().catch(alert);
   document.getElementById("refreshSavedBtn").onclick = () => refreshSavedGames().catch(alert);
   document.getElementById("loginBtn").onclick = () => loginUser().catch((err) => alert(err.message));
   document.getElementById("logoutBtn").onclick = () => logoutUser();

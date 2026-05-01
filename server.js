@@ -445,6 +445,16 @@ app.post("/api/games/:id/resolve", requireUser, safeRoute(async (req, res) => {
   res.json({ state: game.state });
 }));
 
+app.post("/api/games/:id/save", requireUser, safeRoute(async (req, res) => {
+  const game = await loadGame(req.params.id);
+  if (!game || Number(game.user_id) !== Number(req.userId)) {
+    res.status(404).json({ error: "Partida no encontrada." });
+    return;
+  }
+  await saveGame(game.id, req.userId, game.name, game.state);
+  res.json({ ok: true, state: game.state });
+}));
+
 app.get("/api/scores", safeRoute(async (_req, res) => {
   const rows = await all(
     "SELECT game_id, player_name, points, money, owned_count, saved_at FROM scores ORDER BY saved_at DESC LIMIT 40"
