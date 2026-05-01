@@ -561,6 +561,39 @@ function createQuestionCard(question, index) {
   return wrap;
 }
 
+function createMysteryQuestionCard(mystery, question, index) {
+  const wrap = document.createElement("div");
+  wrap.className = "adminItem";
+  wrap.innerHTML = `
+    <div class="adminItemHead">
+      <strong>Pregunta ${index + 1}</strong>
+      <button class="ghost" data-remove-mystery-question="${mystery.id}" data-remove-mystery-question-index="${index}">Eliminar</button>
+    </div>
+    <label class="field">Pregunta
+      <input data-mq-question="${mystery.id}" data-mq-index="${index}" value="${escAttr(question.question)}" />
+    </label>
+    <label class="field">Respuesta A
+      <input data-mq-opt-a="${mystery.id}" data-mq-index="${index}" value="${escAttr((question.options && question.options[0]) || "")}" />
+    </label>
+    <label class="field">Respuesta B
+      <input data-mq-opt-b="${mystery.id}" data-mq-index="${index}" value="${escAttr((question.options && question.options[1]) || "")}" />
+    </label>
+    <label class="field">Respuesta C
+      <input data-mq-opt-c="${mystery.id}" data-mq-index="${index}" value="${escAttr((question.options && question.options[2]) || "")}" />
+    </label>
+    <label class="field">Respuesta correcta
+      <select data-mq-correct="${mystery.id}" data-mq-index="${index}">
+        <option value="0">A</option>
+        <option value="1">B</option>
+        <option value="2">C</option>
+      </select>
+    </label>
+  `;
+  const select = wrap.querySelector(`[data-mq-correct='${mystery.id}'][data-mq-index='${index}']`);
+  select.value = String(Number.isInteger(question.correctIndex) ? question.correctIndex : 0);
+  return wrap;
+}
+
 function createSurpriseCard(card, index) {
   const wrap = document.createElement("div");
   wrap.className = "adminItem";
@@ -674,17 +707,62 @@ async function deleteAdminUser(userId) {
 
 function renderAdminEditors(content) {
   const qBox = document.getElementById("questionsFields");
+  const mqBox = document.getElementById("mysteryQuestionsFields");
   const sBox = document.getElementById("surprisesFields");
+  const mysteries = (state.config && state.config.mysteries) || [];
+  if (!content.mysteryQuestions || typeof content.mysteryQuestions !== "object") {
+    content.mysteryQuestions = {};
+  }
   qBox.innerHTML = "";
+  mqBox.innerHTML = "";
   sBox.innerHTML = "";
 
   content.quizQuestions.forEach((q, idx) => qBox.appendChild(createQuestionCard(q, idx)));
+  mysteries.forEach((mystery) => {
+    if (!Array.isArray(content.mysteryQuestions[mystery.id])) {
+      content.mysteryQuestions[mystery.id] = [];
+    }
+    const section = document.createElement("div");
+    section.className = "mysteryQuestionsGroup";
+    section.innerHTML = `
+      <div class="adminSectionHead compact">
+        <h4 style="color:${escAttr(mystery.color)}">${escAttr(mystery.name)}</h4>
+        <button data-add-mystery-question="${mystery.id}">+ Pregunta</button>
+      </div>
+      <div class="adminList" data-mystery-question-list="${mystery.id}"></div>
+    `;
+    const list = section.querySelector(`[data-mystery-question-list='${mystery.id}']`);
+    content.mysteryQuestions[mystery.id].forEach((q, idx) => list.appendChild(createMysteryQuestionCard(mystery, q, idx)));
+    mqBox.appendChild(section);
+  });
   content.surpriseCards.forEach((s, idx) => sBox.appendChild(createSurpriseCard(s, idx)));
 
   qBox.querySelectorAll("[data-remove-question]").forEach((btn) => {
     btn.onclick = () => {
       const idx = Number(btn.dataset.removeQuestion);
       content.quizQuestions.splice(idx, 1);
+      renderAdminEditors(content);
+    };
+  });
+  mqBox.querySelectorAll("[data-add-mystery-question]").forEach((btn) => {
+    btn.onclick = () => {
+      const mysteryId = btn.dataset.addMysteryQuestion;
+      if (!Array.isArray(content.mysteryQuestions[mysteryId])) {
+        content.mysteryQuestions[mysteryId] = [];
+      }
+      content.mysteryQuestions[mysteryId].push({
+        question: "",
+        options: ["", "", ""],
+        correctIndex: 0
+      });
+      renderAdminEditors(content);
+    };
+  });
+  mqBox.querySelectorAll("[data-remove-mystery-question]").forEach((btn) => {
+    btn.onclick = () => {
+      const mysteryId = btn.dataset.removeMysteryQuestion;
+      const idx = Number(btn.dataset.removeMysteryQuestionIndex);
+      content.mysteryQuestions[mysteryId].splice(idx, 1);
       renderAdminEditors(content);
     };
   });
@@ -714,6 +792,7 @@ function renderAdminEditors(content) {
 
 function readAdminEditors() {
   const quizQuestions = [];
+  const mysteryQuestions = {};
   const surpriseCards = [];
 
   const questionItems = [...document.querySelectorAll("#questionsFields .adminItem")];
@@ -728,6 +807,24 @@ function readAdminEditors() {
       question,
       options: [a, b, c],
       correctIndex
+    });
+  });
+
+  const mysteries = (state.config && state.config.mysteries) || [];
+  mysteries.forEach((mystery) => {
+    mysteryQuestions[mystery.id] = [];
+    const items = [...document.querySelectorAll(`[data-mystery-question-list='${mystery.id}'] .adminItem`)];
+    items.forEach((_, idx) => {
+      const question = document.querySelector(`[data-mq-question='${mystery.id}'][data-mq-index='${idx}']`).value.trim();
+      const a = document.querySelector(`[data-mq-opt-a='${mystery.id}'][data-mq-index='${idx}']`).value.trim();
+      const b = document.querySelector(`[data-mq-opt-b='${mystery.id}'][data-mq-index='${idx}']`).value.trim();
+      const c = document.querySelector(`[data-mq-opt-c='${mystery.id}'][data-mq-index='${idx}']`).value.trim();
+      const correctIndex = Number(document.querySelector(`[data-mq-correct='${mystery.id}'][data-mq-index='${idx}']`).value);
+      mysteryQuestions[mystery.id].push({
+        question,
+        options: [a, b, c],
+        correctIndex
+      });
     });
   });
 
@@ -754,7 +851,7 @@ function readAdminEditors() {
     surpriseCards.push(card);
   });
 
-  return { quizQuestions, surpriseCards };
+  return { quizQuestions, mysteryQuestions, surpriseCards };
 }
 
 function clearValidationMarks() {
@@ -799,6 +896,36 @@ function validateAdminEditors() {
     }
   });
 
+  const mysteries = (state.config && state.config.mysteries) || [];
+  mysteries.forEach((mystery) => {
+    const items = [...document.querySelectorAll(`[data-mystery-question-list='${mystery.id}'] .adminItem`)];
+    if (!items.length) {
+      errors.push(`${mystery.name}: debe haber al menos una pregunta.`);
+    }
+    items.forEach((_, idx) => {
+      const q = document.querySelector(`[data-mq-question='${mystery.id}'][data-mq-index='${idx}']`).value.trim();
+      const a = document.querySelector(`[data-mq-opt-a='${mystery.id}'][data-mq-index='${idx}']`).value.trim();
+      const b = document.querySelector(`[data-mq-opt-b='${mystery.id}'][data-mq-index='${idx}']`).value.trim();
+      const c = document.querySelector(`[data-mq-opt-c='${mystery.id}'][data-mq-index='${idx}']`).value.trim();
+      if (!q) {
+        errors.push(`${mystery.name}, pregunta ${idx + 1}: enunciado vacío.`);
+        markInvalid(`[data-mq-question='${mystery.id}'][data-mq-index='${idx}']`);
+      }
+      if (!a) {
+        errors.push(`${mystery.name}, pregunta ${idx + 1}: falta respuesta A.`);
+        markInvalid(`[data-mq-opt-a='${mystery.id}'][data-mq-index='${idx}']`);
+      }
+      if (!b) {
+        errors.push(`${mystery.name}, pregunta ${idx + 1}: falta respuesta B.`);
+        markInvalid(`[data-mq-opt-b='${mystery.id}'][data-mq-index='${idx}']`);
+      }
+      if (!c) {
+        errors.push(`${mystery.name}, pregunta ${idx + 1}: falta respuesta C.`);
+        markInvalid(`[data-mq-opt-c='${mystery.id}'][data-mq-index='${idx}']`);
+      }
+    });
+  });
+
   const surpriseItems = [...document.querySelectorAll("#surprisesFields .adminItem")];
   if (!surpriseItems.length) {
     errors.push("Debe haber al menos una sorpresa.");
@@ -841,10 +968,10 @@ async function adminSave() {
     return;
   }
 
-  const { quizQuestions, surpriseCards } = readAdminEditors();
+  const { quizQuestions, mysteryQuestions, surpriseCards } = readAdminEditors();
   await api("/api/admin/content", {
     method: "PUT",
-    body: JSON.stringify({ quizQuestions, surpriseCards }),
+    body: JSON.stringify({ quizQuestions, mysteryQuestions, surpriseCards }),
     admin: true
   });
   alert("Contenido guardado. Las nuevas partidas usarán estos cambios.");
@@ -863,14 +990,25 @@ function renderSavedGames(list) {
   }
   for (const game of list) {
     const li = document.createElement("li");
-    const btn = document.createElement("button");
-    btn.textContent = `Cargar: ${game.name} (turno ${game.turn})`;
-    btn.onclick = () => loadGame(game.id);
+    if (game.gameOver) {
+      const result = document.createElement("div");
+      result.className = "savedGameResult";
+      const players = [...(game.players || [])].sort((a, b) => Number(b.money || 0) - Number(a.money || 0));
+      const rows = players
+        .map((player) => `<span>${escAttr(formatPlayerName(player.name))}: <strong>${formatMoney(player.money)}</strong></span>`)
+        .join("");
+      result.innerHTML = `<strong>${escAttr(game.name)}</strong><div>Partida terminada</div><div class="savedMoneyRows">${rows}</div>`;
+      li.appendChild(result);
+    } else {
+      const btn = document.createElement("button");
+      btn.textContent = `Cargar: ${game.name} (turno ${game.turn})`;
+      btn.onclick = () => loadGame(game.id);
+      li.appendChild(btn);
+    }
     const delBtn = document.createElement("button");
     delBtn.textContent = "Eliminar";
     delBtn.className = "ghost";
     delBtn.onclick = () => deleteGame(game.id).catch((err) => alert(err.message));
-    li.appendChild(btn);
     li.appendChild(delBtn);
     savedGamesEl.appendChild(li);
   }

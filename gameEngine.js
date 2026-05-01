@@ -300,8 +300,11 @@ function shuffle(list) {
   return arr;
 }
 
-function createMysteryQuestion(mystery) {
-  const questions = MYSTERY_QUESTIONS[mystery.id];
+function createMysteryQuestion(state, mystery) {
+  const source = state && state.mysteryQuestions && typeof state.mysteryQuestions === "object"
+    ? state.mysteryQuestions
+    : MYSTERY_QUESTIONS;
+  const questions = source[mystery.id];
   if (questions && questions.length) {
     const selected = pickOne(questions);
     const correctAnswer = selected.options[selected.correctIndex];
@@ -358,6 +361,10 @@ function createInitialState(playersInput, cards = {}, options = {}) {
     duration,
     rules,
     quizQuestions: Array.isArray(cards.quizQuestions) && cards.quizQuestions.length ? cards.quizQuestions : QUIZ_QUESTIONS,
+    mysteryQuestions: cards.mysteryQuestions && typeof cards.mysteryQuestions === "object" ? cards.mysteryQuestions : MYSTERIES.reduce((acc, mystery) => {
+      acc[mystery.id] = MYSTERY_QUESTIONS[mystery.id] || [];
+      return acc;
+    }, {}),
     surpriseCards: Array.isArray(cards.surpriseCards) && cards.surpriseCards.length ? cards.surpriseCards : SURPRISE_CARDS,
     log: ["Comienza la partida."],
     players,
@@ -405,7 +412,7 @@ function resolveMysteryLanding(state, player, cell) {
   const ownerId = state.ownership[mystery.id];
 
   if (!ownerId) {
-    const question = createMysteryQuestion(mystery);
+    const question = createMysteryQuestion(state, mystery);
     state.pending = {
       type: "mysteryQuiz",
       mysteryId: mystery.id,
@@ -422,7 +429,7 @@ function resolveMysteryLanding(state, player, cell) {
 
   const owner = state.players.find((p) => p.id === ownerId);
   const rent = Math.max(15, Math.floor(mystery.cost / state.rules.rentDivisor));
-  const question = createMysteryQuestion(mystery);
+  const question = createMysteryQuestion(state, mystery);
   state.pending = {
     type: "mysteryOwnerQuiz",
     mysteryId: mystery.id,
@@ -676,6 +683,7 @@ function resolveBotTurn(state) {
 
 module.exports = {
   MYSTERIES,
+  MYSTERY_QUESTIONS,
   createInitialState,
   getCurrentPlayer,
   nextTurn,

@@ -164,6 +164,26 @@ h3 {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
+.mysteryQuestionsList {
+  display: grid;
+  gap: 10px;
+}
+
+.mysteryQuestionsGroup {
+  border: 1px solid #d8c49f;
+  border-radius: 12px;
+  padding: 8px;
+  background: #fff7e8;
+}
+
+.adminSectionHead.compact {
+  margin-top: 0;
+}
+
+.adminSectionHead h4 {
+  margin: 0;
+}
+
 .adminItem {
   border: 1px solid #c9b38a;
   border-radius: 10px;
@@ -252,6 +272,30 @@ button.danger {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.savedGameResult {
+  display: inline-block;
+  vertical-align: top;
+  min-width: min(100%, 320px);
+  margin: 8px 8px 0 0;
+  padding: 9px 10px;
+  border: 1px solid #d6c3a2;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.savedMoneyRows {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.savedMoneyRows span {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f4ead8;
 }
 
 .playerRow {
