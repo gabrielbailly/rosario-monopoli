@@ -13,6 +13,7 @@ const state = {
   lastShownDrawKey: null,
   lastShownCenterCardKey: null,
   animatingPlayerId: null,
+  deferCenterCardsUntilMoveEnd: false,
   userToken: localStorage.getItem("userToken") || null,
   username: localStorage.getItem("username") || null
 };
@@ -1440,7 +1441,7 @@ function renderPending() {
     return;
   }
 
-  if (state.animatingPlayerId) {
+  if (state.animatingPlayerId || state.deferCenterCardsUntilMoveEnd) {
     return;
   }
 
@@ -1635,11 +1636,13 @@ async function roll() {
     playSound("question");
   }
   state.animatingPlayerId = movingPlayerId;
+  state.deferCenterCardsUntilMoveEnd = true;
   renderAll();
   const movedPlayerNow = state.gameState.players.find((player) => player.id === movingPlayerId);
   if (movedPlayerNow) {
     await animateMove(movingPlayerIdx, fromPosition, movedPlayerNow.position);
     state.animatingPlayerId = null;
+    state.deferCenterCardsUntilMoveEnd = false;
     renderAll();
     const landed = state.gameState.board[movedPlayerNow.position];
     if (landed && landed.type === "quiz") {
@@ -1650,6 +1653,8 @@ async function roll() {
     await showPaymentCardIfNeeded(movingPlayerContext);
   } else {
     state.animatingPlayerId = null;
+    state.deferCenterCardsUntilMoveEnd = false;
+    renderAll();
   }
   await refreshSavedGames();
   if (!state.gameState.pending) {
@@ -1769,12 +1774,14 @@ async function runBotTurns() {
     const botContext = getPlayerContext(current);
     playSound("move");
     state.animatingPlayerId = botId;
+    state.deferCenterCardsUntilMoveEnd = true;
     renderAll();
 
     const movedBot = state.gameState.players.find((p) => p.id === botId);
     if (movedBot) {
       await animateMove(state.gameState.players.indexOf(movedBot), fromPosition, movedBot.position);
       state.animatingPlayerId = null;
+      state.deferCenterCardsUntilMoveEnd = false;
       renderAll();
       const landed = state.gameState.board[movedBot.position];
       if (landed && landed.type === "quiz") {
@@ -1786,6 +1793,8 @@ async function runBotTurns() {
       await showPaymentCardIfNeeded(botContext);
     } else {
       state.animatingPlayerId = null;
+      state.deferCenterCardsUntilMoveEnd = false;
+      renderAll();
     }
 
     if (state.gameState.pending) {
