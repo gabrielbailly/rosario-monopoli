@@ -509,7 +509,8 @@ function logoutUser() {
 async function openAdminPanel() {
   document.getElementById("adminModal").classList.remove("hidden");
   document.getElementById("adminSaveBtn").classList.add("hidden");
-  document.getElementById("adminPassword").value = "";
+  const passwordInput = document.getElementById("adminPassword");
+  passwordInput.value = "";
 
   if (state.adminToken) {
     try {
@@ -522,6 +523,7 @@ async function openAdminPanel() {
 
   document.getElementById("adminLoginBox").classList.remove("hidden");
   document.getElementById("adminEditorBox").classList.add("hidden");
+  setTimeout(() => passwordInput.focus(), 0);
 }
 
 function closeAdminPanel() {
@@ -713,11 +715,15 @@ function renderAdminEditors(content) {
   if (!content.mysteryQuestions || typeof content.mysteryQuestions !== "object") {
     content.mysteryQuestions = {};
   }
-  qBox.innerHTML = "";
+  if (qBox) {
+    qBox.innerHTML = "";
+  }
   mqBox.innerHTML = "";
   sBox.innerHTML = "";
 
-  content.quizQuestions.forEach((q, idx) => qBox.appendChild(createQuestionCard(q, idx)));
+  if (qBox) {
+    content.quizQuestions.forEach((q, idx) => qBox.appendChild(createQuestionCard(q, idx)));
+  }
   mysteries.forEach((mystery) => {
     if (!Array.isArray(content.mysteryQuestions[mystery.id])) {
       content.mysteryQuestions[mystery.id] = [];
@@ -737,13 +743,15 @@ function renderAdminEditors(content) {
   });
   content.surpriseCards.forEach((s, idx) => sBox.appendChild(createSurpriseCard(s, idx)));
 
-  qBox.querySelectorAll("[data-remove-question]").forEach((btn) => {
-    btn.onclick = () => {
-      const idx = Number(btn.dataset.removeQuestion);
-      content.quizQuestions.splice(idx, 1);
-      renderAdminEditors(content);
-    };
-  });
+  if (qBox) {
+    qBox.querySelectorAll("[data-remove-question]").forEach((btn) => {
+      btn.onclick = () => {
+        const idx = Number(btn.dataset.removeQuestion);
+        content.quizQuestions.splice(idx, 1);
+        renderAdminEditors(content);
+      };
+    });
+  }
   mqBox.querySelectorAll("[data-add-mystery-question]").forEach((btn) => {
     btn.onclick = () => {
       const mysteryId = btn.dataset.addMysteryQuestion;
@@ -774,15 +782,18 @@ function renderAdminEditors(content) {
     };
   });
 
-  document.getElementById("addQuestionBtn").onclick = () => {
-    content.quizQuestions.push({
-      id: `q${Date.now()}`,
-      question: "",
-      options: ["", "", ""],
-      correctIndex: 0
-    });
-    renderAdminEditors(content);
-  };
+  const addQuestionBtn = document.getElementById("addQuestionBtn");
+  if (addQuestionBtn) {
+    addQuestionBtn.onclick = () => {
+      content.quizQuestions.push({
+        id: `q${Date.now()}`,
+        question: "",
+        options: ["", "", ""],
+        correctIndex: 0
+      });
+      renderAdminEditors(content);
+    };
+  }
 
   document.getElementById("addSurpriseBtn").onclick = () => {
     content.surpriseCards.push({ text: "", money: 0, moveBy: 0, skipTurns: 0, goStart: false });
@@ -791,11 +802,16 @@ function renderAdminEditors(content) {
 }
 
 function readAdminEditors() {
-  const quizQuestions = [];
+  const quizQuestions = state.adminContent && Array.isArray(state.adminContent.quizQuestions)
+    ? state.adminContent.quizQuestions
+    : [];
   const mysteryQuestions = {};
   const surpriseCards = [];
 
   const questionItems = [...document.querySelectorAll("#questionsFields .adminItem")];
+  if (questionItems.length) {
+    quizQuestions.length = 0;
+  }
   questionItems.forEach((_, idx) => {
     const question = document.querySelector(`[data-q-question='${idx}']`).value.trim();
     const a = document.querySelector(`[data-q-opt-a='${idx}']`).value.trim();
@@ -870,7 +886,7 @@ function validateAdminEditors() {
   const errors = [];
 
   const questionItems = [...document.querySelectorAll("#questionsFields .adminItem")];
-  if (!questionItems.length) {
+  if (document.getElementById("questionsFields") && !questionItems.length) {
     errors.push("Debe haber al menos una pregunta.");
   }
   questionItems.forEach((_, idx) => {
@@ -1831,6 +1847,12 @@ async function init() {
   document.getElementById("rollBtn").addEventListener("click", ensureAudio);
   document.getElementById("adminBtn").onclick = () => openAdminPanel().catch((err) => alert(err.message));
   document.getElementById("adminLoginBtn").onclick = () => adminLogin().catch((err) => alert(err.message));
+  document.getElementById("adminPassword").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      adminLogin().catch((err) => alert(err.message));
+    }
+  });
   document.getElementById("adminSaveBtn").onclick = () => adminSave().catch((err) => alert(err.message));
   document.getElementById("adminCloseBtn").onclick = () => closeAdminPanel();
   document.getElementById("refreshUsersBtn").onclick = () => loadAdminUsers().catch((err) => alert(err.message));
