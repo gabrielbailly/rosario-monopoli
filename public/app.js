@@ -14,6 +14,7 @@ const state = {
   lastShownCenterCardKey: null,
   animatingPlayerId: null,
   deferCenterCardsUntilMoveEnd: false,
+  deferMoneyUpdatesUntilCenterCard: false,
   userToken: localStorage.getItem("userToken") || null,
   username: localStorage.getItem("username") || null
 };
@@ -1310,6 +1311,25 @@ async function showCenterCardMessageIfNeeded(playerContext = null) {
   await showFloatingCard(card.type || "mystery", card.title || "Aviso", card.lines || [], { requireContinue: true, player: playerContext });
 }
 
+function applyDeferredMoneyUpdates() {
+  if (!state.deferMoneyUpdatesUntilCenterCard) {
+    return;
+  }
+  state.deferMoneyUpdatesUntilCenterCard = false;
+  renderAll();
+}
+
+function hasMoneyChange(previous, current) {
+  if (!previous || !current) {
+    return false;
+  }
+  const previousById = Object.fromEntries(previous.players.map((p) => [p.id, p]));
+  return current.players.some((player) => {
+    const prev = previousById[player.id];
+    return prev && Number(prev.money || 0) !== Number(player.money || 0);
+  });
+}
+
 function animateNumber(el, from, to, duration = 780) {
   if (!el) {
     return;
@@ -1328,7 +1348,7 @@ function animateNumber(el, from, to, duration = 780) {
 }
 
 function animatePlayerStats() {
-  if (!state.previousGameState || !state.gameState) {
+  if (state.deferMoneyUpdatesUntilCenterCard || !state.previousGameState || !state.gameState) {
     return;
   }
   const prevById = Object.fromEntries(state.previousGameState.players.map((p) => [p.id, p]));
@@ -1357,6 +1377,9 @@ function renderPlayers() {
   const current = state.gameState.players[state.gameState.currentPlayerIndex];
   const mysteryMap = getMysteryMap();
   const mysteryOrderMap = getMysteryOrderMap();
+  const previousPlayersById = state.deferMoneyUpdatesUntilCenterCard && state.previousGameState
+    ? Object.fromEntries(state.previousGameState.players.map((p) => [p.id, p]))
+    : {};
   container.innerHTML = "";
   state.gameState.players.forEach((player, idx) => {
     const div = document.createElement("div");
@@ -1392,8 +1415,9 @@ function renderPlayers() {
         return `<div class="ownedGroup"><div class="ownedGroupTitle">${groupLabels[group]}</div><div class="ownedList">${tags}</div></div>`;
       })
       .join("");
+    const displayedMoney = previousPlayersById[player.id] ? previousPlayersById[player.id].money : player.money;
     div.innerHTML = `
-      <div class="playerNameRow">${badge}<strong>${formatPlayerName(player.name)}</strong> (${role}) · 💰 <span id="moneyValue-${player.id}">${player.money}</span> € <span id="moneyDelta-${player.id}" class="deltaBadge"></span> · 📿 ${player.ownedMysteries.length}</div>
+      <div class="playerNameRow">${badge}<strong>${formatPlayerName(player.name)}</strong> (${role}) · 💰 <span id="moneyValue-${player.id}">${displayedMoney}</span> € <span id="moneyDelta-${player.id}" class="deltaBadge"></span> · 📿 ${player.ownedMysteries.length}</div>
       <div>${ownedGroupsHtml || "<span>Sin misterios comprados</span>"}</div>
     `;
     container.appendChild(div);
@@ -1637,6 +1661,7 @@ async function roll() {
   }
   state.animatingPlayerId = movingPlayerId;
   state.deferCenterCardsUntilMoveEnd = true;
+  state.deferMoneyUpdatesUntilCenterCard = hasMoneyChange(previous, state.gameState);
   renderAll();
   const movedPlayerNow = state.gameState.players.find((player) => player.id === movingPlayerId);
   if (movedPlayerNow) {
@@ -1651,9 +1676,11 @@ async function roll() {
     await showSurpriseCardIfNeeded(movingPlayerContext);
     await showMoneyEventCardIfNeeded(movingPlayerContext);
     await showPaymentCardIfNeeded(movingPlayerContext);
+    applyDeferredMoneyUpdates();
   } else {
     state.animatingPlayerId = null;
     state.deferCenterCardsUntilMoveEnd = false;
+    state.deferMoneyUpdatesUntilCenterCard = false;
     renderAll();
   }
   await refreshSavedGames();
@@ -1678,6 +1705,7 @@ async function resolveAction(payload, skipBotLoop = false) {
   });
   state.previousGameState = previous;
   state.gameState = data.state;
+  state.deferMoneyUpdatesUntilCenterCard = hasMoneyChange(previous, state.gameState);
   const affectedPlayerContext = getPlayerContext(affectedPlayer);
   await showSurpriseCardIfNeeded(affectedPlayerContext);
   if (previous.pending && previous.pending.type === "mysteryQuiz" && shouldPlayCorrect) {
@@ -1704,6 +1732,7 @@ async function resolveAction(payload, skipBotLoop = false) {
   renderAll();
   await showCenterCardMessageIfNeeded(affectedPlayerContext);
   await showMoneyEventCardIfNeeded(affectedPlayerContext);
+  applyDeferredMoneyUpdates();
   await refreshSavedGames();
   if (!skipBotLoop) {
     await runBotTurns();
@@ -1775,6 +1804,7 @@ async function runBotTurns() {
     playSound("move");
     state.animatingPlayerId = botId;
     state.deferCenterCardsUntilMoveEnd = true;
+    state.deferMoneyUpdatesUntilCenterCard = hasMoneyChange(beforeRoll, state.gameState);
     renderAll();
 
     const movedBot = state.gameState.players.find((p) => p.id === botId);
@@ -1791,9 +1821,11 @@ async function runBotTurns() {
       await showSurpriseCardIfNeeded(botContext);
       await showMoneyEventCardIfNeeded(botContext);
       await showPaymentCardIfNeeded(botContext);
+      applyDeferredMoneyUpdates();
     } else {
       state.animatingPlayerId = null;
       state.deferCenterCardsUntilMoveEnd = false;
+      state.deferMoneyUpdatesUntilCenterCard = false;
       renderAll();
     }
 
